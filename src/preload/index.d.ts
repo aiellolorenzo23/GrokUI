@@ -10,8 +10,10 @@ import type {
 type GrokUiApi = {
   listSessions: (mode: CliMode, cwd: string, limit?: number) => Promise<CliSession[]>
   exportSession: (mode: CliMode, cwd: string, sessionId: string) => Promise<string>
+  listSessionMedia: (sessionId: string) => Promise<string[]>
   startCli: (request: CliRunRequest) => Promise<CliRunStarted>
   stopCli: (runId: string) => Promise<boolean>
+  openMedia: (target: string) => Promise<void>
   onCliStream: (callback: (event: CliStreamEvent) => void) => () => void
 }
 

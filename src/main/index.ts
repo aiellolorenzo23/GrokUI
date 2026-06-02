@@ -1,7 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { fileURLToPath } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { exportSession, listSessions, startCliRun, stopCliRun } from './cli'
+import { exportSession, listSessionMedia, listSessions, startCliRun, stopCliRun } from './cli'
 import iconIco from '../../build/icon.ico?asset'
 import icon from '../../resources/icon.png?asset'
 
@@ -40,6 +41,20 @@ function createWindow(): void {
   }
 }
 
+async function openMediaTarget(target: string): Promise<void> {
+  if (/^https?:\/\//i.test(target)) {
+    await shell.openExternal(target)
+    return
+  }
+
+  if (/^file:\/\//i.test(target)) {
+    await shell.openPath(fileURLToPath(target))
+    return
+  }
+
+  await shell.openPath(target)
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -62,12 +77,14 @@ app.whenReady().then(() => {
   ipcMain.handle('cli:export-session', (_, mode, cwd, sessionId) =>
     exportSession(mode, cwd, sessionId)
   )
+  ipcMain.handle('cli:list-session-media', (_, sessionId) => listSessionMedia(sessionId))
   ipcMain.handle('cli:start', (event, request) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) throw new Error('No browser window available for CLI stream')
     return startCliRun(window, request)
   })
   ipcMain.handle('cli:stop', (_, runId) => stopCliRun(runId))
+  ipcMain.handle('app:open-media', (_, target) => openMediaTarget(target))
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

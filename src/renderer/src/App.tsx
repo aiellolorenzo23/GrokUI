@@ -1,27 +1,180 @@
-import { type CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react'
+import { type CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { CliMode, CliSession, CliStreamEvent } from '../../shared/types'
 import grokLogo from '../../../resources/logo.svg'
 
+type ChatMessage = {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  media?: string[]
+}
+
 type ConversationState = {
-  transcript: string
-  liveOutput: string
+  messages: ChatMessage[]
   activeSessionId?: string
   activeRunId?: string
 }
 
+type SessionPrefs = {
+  hidden: Record<CliMode, string[]>
+  aliases: Record<string, string>
+  agentSessionIds: string[]
+}
+
+type ContextMenuState = {
+  mode: CliMode
+  session: CliSession
+  x: number
+  y: number
+}
+
+type RenameState = {
+  session: CliSession
+  value: string
+}
+
 const initialConversations: Record<CliMode, ConversationState> = {
-  grok: { transcript: '', liveOutput: '' },
-  agent: { transcript: '', liveOutput: '' }
+  grok: { messages: [] },
+  agent: { messages: [] }
 }
 
 const defaultCwd = 'C:\\Users\\lollo'
+const prefsKey = 'grokui.sessionPrefs'
+
+function createId(): string {
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+}
 
 function shortId(id: string): string {
   return id.slice(0, 8)
 }
 
-function sessionTitle(session: CliSession): string {
-  return session.summary || `(sessione ${shortId(session.id)})`
+function getDefaultPrefs(): SessionPrefs {
+  return {
+    hidden: { grok: [], agent: [] },
+    aliases: {},
+    agentSessionIds: []
+  }
+}
+
+function loadPrefs(): SessionPrefs {
+  try {
+    return { ...getDefaultPrefs(), ...JSON.parse(localStorage.getItem(prefsKey) ?? '{}') }
+  } catch {
+    return getDefaultPrefs()
+  }
+}
+
+function savePrefs(prefs: SessionPrefs): void {
+  localStorage.setItem(prefsKey, JSON.stringify(prefs))
+}
+
+function sessionTitle(session: CliSession, aliases: Record<string, string>): string {
+  return aliases[session.id] || session.summary || `(sessione ${shortId(session.id)})`
+}
+
+function filenameFromPath(path: string): string {
+  return path.split(/[\\/]/).pop()?.toLowerCase() ?? path.toLowerCase()
+}
+
+function messageRoleFromHeading(heading: string): ChatMessage['role'] {
+  if (heading.toLowerCase() === 'user') return 'user'
+  if (heading.toLowerCase() === 'assistant') return 'assistant'
+  return 'system'
+}
+
+function attachMediaToMessages(messages: ChatMessage[], media: string[]): ChatMessage[] {
+  if (media.length === 0) return messages
+
+  const assigned = new Set<string>()
+  const nextMessages = messages.map((message) => {
+    const content = message.content.toLowerCase()
+    const matches = media.filter((item) => content.includes(filenameFromPath(item)))
+    if (matches.length === 0) return message
+
+    matches.forEach((item) => assigned.add(item))
+    return { ...message, media: Array.from(new Set([...(message.media ?? []), ...matches])) }
+  })
+
+  const remaining = media.filter((item) => !assigned.has(item))
+  if (remaining.length === 0) return nextMessages
+
+  const lastAssistantIndex = nextMessages.findLastIndex((message) => message.role === 'assistant')
+  if (lastAssistantIndex < 0) return nextMessages
+
+  const target = nextMessages[lastAssistantIndex]
+  nextMessages[lastAssistantIndex] = {
+    ...target,
+    media: Array.from(new Set([...(target.media ?? []), ...remaining]))
+  }
+
+  return nextMessages
+}
+
+function transcriptToMessages(transcript: string, media: string[] = []): ChatMessage[] {
+  const trimmed = transcript.trim()
+  if (!trimmed) return []
+
+  const headingPattern = /^##\s+(User|Assistant|Tools|System)\s*$/gim
+  const headings = Array.from(trimmed.matchAll(headingPattern))
+
+  if (headings.length === 0) {
+    return attachMediaToMessages(
+      [
+        {
+          id: createId(),
+          role: 'assistant',
+          content: trimmed
+        }
+      ],
+      media
+    )
+  }
+
+  const messages = headings
+    .map((heading, index) => {
+      const start = (heading.index ?? 0) + heading[0].length
+      const end = headings[index + 1]?.index ?? trimmed.length
+      const content = trimmed.slice(start, end).trim()
+      if (!content) return undefined
+
+      return {
+        id: createId(),
+        role: messageRoleFromHeading(heading[1]),
+        content
+      }
+    })
+    .filter((message): message is ChatMessage => Boolean(message))
+
+  return attachMediaToMessages(messages, media)
+}
+
+function normalizeMediaLink(link: string): string {
+  return link.replace(/[),.;]+$/g, '')
+}
+
+function extractMediaLinks(text: string): string[] {
+  const matches = text.match(
+    /(?:file:\/\/\/[^\s)]+|[A-Za-z]:\\[^\n"']+\.(?:png|jpe?g|webp|gif|mp4|webm)|https?:\/\/[^\s)]+\.(?:png|jpe?g|webp|gif|mp4|webm))/gi
+  )
+
+  return Array.from(new Set((matches ?? []).map(normalizeMediaLink)))
+}
+
+function appendMediaToLastAssistant(messages: ChatMessage[], media: string[]): ChatMessage[] {
+  if (media.length === 0) return messages
+
+  const lastAssistantIndex = messages.findLastIndex((message) => message.role === 'assistant')
+  if (lastAssistantIndex < 0) return messages
+
+  const nextMessages = [...messages]
+  const target = nextMessages[lastAssistantIndex]
+  nextMessages[lastAssistantIndex] = {
+    ...target,
+    media: Array.from(new Set([...(target.media ?? []), ...media]))
+  }
+
+  return nextMessages
 }
 
 function App(): React.JSX.Element {
@@ -32,34 +185,103 @@ function App(): React.JSX.Element {
   const [sessions, setSessions] = useState<Record<CliMode, CliSession[]>>({ grok: [], agent: [] })
   const [conversations, setConversations] =
     useState<Record<CliMode, ConversationState>>(initialConversations)
+  const [prefs, setPrefs] = useState<SessionPrefs>(() => loadPrefs())
+  const [isSidebarHidden, setIsSidebarHidden] = useState(false)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>()
+  const [renameTarget, setRenameTarget] = useState<RenameState>()
   const [isLoadingSessions, setIsLoadingSessions] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string>()
 
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const sessionMediaRef = useRef<Record<string, string[]>>({})
   const logoStyle = { '--logo': `url(${grokLogo})` } as CSSProperties
   const activeConversation = conversations[mode]
-  const activeSessions = sessions[mode]
+
+  const visibleSessions = useMemo(
+    () => ({
+      grok: sessions.grok.filter((session) => !prefs.hidden.grok.includes(session.id)),
+      agent: sessions.agent.filter(
+        (session) =>
+          prefs.agentSessionIds.includes(session.id) && !prefs.hidden.agent.includes(session.id)
+      )
+    }),
+    [prefs.agentSessionIds, prefs.hidden.agent, prefs.hidden.grok, sessions.agent, sessions.grok]
+  )
 
   const selectedSession = useMemo(
-    () => activeSessions.find((session) => session.id === activeConversation.activeSessionId),
-    [activeConversation.activeSessionId, activeSessions]
+    () =>
+      visibleSessions[mode].find((session) => session.id === activeConversation.activeSessionId),
+    [activeConversation.activeSessionId, mode, visibleSessions]
   )
 
   useEffect(() => {
+    savePrefs(prefs)
+  }, [prefs])
+
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    if (!scroller) return
+
+    scroller.scrollTop = scroller.scrollHeight
+  }, [activeConversation.messages])
+
+  useEffect(() => {
     return window.api.onCliStream((event: CliStreamEvent) => {
+      if (event.kind === 'json') {
+        const data = event.data as Record<string, unknown> | undefined
+        const sessionId = typeof data?.sessionId === 'string' ? data.sessionId : undefined
+
+        if (data?.type === 'end' && sessionId) {
+          setConversations((current) => {
+            const target = current[event.mode]
+            if (target.activeRunId !== event.runId) return current
+            return {
+              ...current,
+              [event.mode]: { ...target, activeSessionId: sessionId }
+            }
+          })
+
+          void window.api.listSessionMedia(sessionId).then((media) => {
+            const previous = sessionMediaRef.current[sessionId] ?? []
+            const newMedia = media.filter((item) => !previous.includes(item))
+
+            if (newMedia.length > 0) {
+              setConversations((conversationState) => {
+                const target = conversationState[event.mode]
+                return {
+                  ...conversationState,
+                  [event.mode]: {
+                    ...target,
+                    messages: appendMediaToLastAssistant(target.messages, newMedia)
+                  }
+                }
+              })
+            }
+
+            sessionMediaRef.current = { ...sessionMediaRef.current, [sessionId]: media }
+          })
+        }
+
+        return
+      }
+
       setConversations((current) => {
         const target = current[event.mode]
-
         if (target.activeRunId !== event.runId) return current
 
         if (event.kind === 'text' || event.kind === 'stdout') {
-          return {
-            ...current,
-            [event.mode]: {
-              ...target,
-              liveOutput: `${target.liveOutput}${event.text ?? ''}${event.kind === 'stdout' ? '\n' : ''}`
-            }
+          const chunk = event.text ?? ''
+          const messages = [...target.messages]
+          const last = messages[messages.length - 1]
+
+          if (last?.role === 'assistant') {
+            messages[messages.length - 1] = { ...last, content: `${last.content}${chunk}` }
+          } else {
+            messages.push({ id: createId(), role: 'assistant', content: chunk })
           }
+
+          return { ...current, [event.mode]: { ...target, messages } }
         }
 
         if (event.kind === 'stderr' || event.kind === 'error') {
@@ -67,20 +289,23 @@ function App(): React.JSX.Element {
             ...current,
             [event.mode]: {
               ...target,
-              liveOutput: `${target.liveOutput}\n${event.text ?? ''}`
+              messages: [
+                ...target.messages,
+                { id: createId(), role: 'system', content: event.text ?? 'Errore CLI' }
+              ]
             }
           }
         }
 
         if (event.kind === 'exit') {
           setIsSending(false)
-          return {
-            ...current,
-            [event.mode]: {
-              ...target,
-              activeRunId: undefined
-            }
+          const sessionId = target.activeSessionId
+          if (sessionId) {
+            void window.api.listSessionMedia(sessionId).then((media) => {
+              sessionMediaRef.current = { ...sessionMediaRef.current, [sessionId]: media }
+            })
           }
+          return { ...current, [event.mode]: { ...target, activeRunId: undefined } }
         }
 
         return current
@@ -107,11 +332,8 @@ function App(): React.JSX.Element {
     setError(undefined)
 
     try {
-      const [grokSessions, agentSessions] = await Promise.all([
-        window.api.listSessions('grok', cwd, 50),
-        window.api.listSessions('agent', cwd, 50)
-      ])
-      setSessions({ grok: grokSessions, agent: agentSessions })
+      const grokSessions = await window.api.listSessions('grok', cwd, 50)
+      setSessions((current) => ({ ...current, grok: grokSessions, agent: current.agent }))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
@@ -123,7 +345,6 @@ function App(): React.JSX.Element {
     const timeoutId = window.setTimeout(() => {
       void refreshAllSessions()
     }, 0)
-
     return () => window.clearTimeout(timeoutId)
     // Initial import only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -135,15 +356,16 @@ function App(): React.JSX.Element {
 
     try {
       const transcript = await window.api.exportSession(targetMode, cwd, session.id)
+      const media = await window.api.listSessionMedia(session.id)
       setConversations((current) => ({
         ...current,
         [targetMode]: {
-          transcript,
-          liveOutput: '',
+          messages: transcriptToMessages(transcript, media),
           activeSessionId: session.id,
           activeRunId: undefined
         }
       }))
+      sessionMediaRef.current = { ...sessionMediaRef.current, [session.id]: media }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     }
@@ -152,7 +374,7 @@ function App(): React.JSX.Element {
   const startNew = (): void => {
     setConversations((current) => ({
       ...current,
-      [mode]: { transcript: '', liveOutput: '' }
+      [mode]: { messages: [] }
     }))
     setPrompt('')
   }
@@ -178,7 +400,7 @@ function App(): React.JSX.Element {
       ...current,
       [mode]: {
         ...current[mode],
-        liveOutput: `${current[mode].liveOutput}\n> ${text}\n\n`
+        messages: [...current[mode].messages, { id: createId(), role: 'user', content: text }]
       }
     }))
 
@@ -193,10 +415,7 @@ function App(): React.JSX.Element {
 
       setConversations((current) => ({
         ...current,
-        [mode]: {
-          ...current[mode],
-          activeRunId: started.runId
-        }
+        [mode]: { ...current[mode], activeRunId: started.runId }
       }))
     } catch (reason) {
       setIsSending(false)
@@ -205,115 +424,166 @@ function App(): React.JSX.Element {
     }
   }
 
+  const renameSession = (session: CliSession): void => {
+    setContextMenu(undefined)
+    setRenameTarget({ session, value: sessionTitle(session, prefs.aliases) })
+  }
+
+  const confirmRename = (): void => {
+    if (!renameTarget?.value.trim()) return
+    setPrefs((current) => ({
+      ...current,
+      aliases: { ...current.aliases, [renameTarget.session.id]: renameTarget.value.trim() }
+    }))
+    setRenameTarget(undefined)
+  }
+
+  const hideSession = (targetMode: CliMode, session: CliSession): void => {
+    setPrefs((current) => ({
+      ...current,
+      hidden: {
+        ...current.hidden,
+        [targetMode]: Array.from(new Set([...current.hidden[targetMode], session.id]))
+      }
+    }))
+    setContextMenu(undefined)
+  }
+
+  const moveToAgent = (session: CliSession): void => {
+    setContextMenu(undefined)
+    setSessions((current) => ({
+      ...current,
+      agent: Array.from(
+        new Map([...current.agent, session].map((item) => [item.id, item])).values()
+      )
+    }))
+    setPrefs((current) => ({
+      ...current,
+      agentSessionIds: Array.from(new Set([...current.agentSessionIds, session.id]))
+    }))
+  }
+
+  const renderSession = (targetMode: CliMode, session: CliSession): React.JSX.Element => (
+    <button
+      key={session.id}
+      className={
+        mode === targetMode && activeConversation.activeSessionId === session.id
+          ? 'history-item active'
+          : 'history-item'
+      }
+      onClick={() => openSession(targetMode, session)}
+      onContextMenu={(event) => {
+        event.preventDefault()
+        setContextMenu({ mode: targetMode, session, x: event.clientX, y: event.clientY })
+      }}
+    >
+      <strong>{sessionTitle(session, prefs.aliases)}</strong>
+      <span>
+        {session.updated} - {session.status}
+      </span>
+    </button>
+  )
+
   return (
-    <main className="grok-shell">
-      <aside className="grok-sidebar">
-        <div className="sidebar-head">
-          <div className="brand-logo" style={logoStyle} aria-label="GrokUI" />
-          <button className="collapse-button" aria-label="Comprimi sidebar">
-            &lt;&lt;
-          </button>
-        </div>
-
-        <div className="mode-tabs" aria-label="Modalita">
-          <button className={mode === 'grok' ? 'active' : ''} onClick={() => setMode('grok')}>
-            Grok
-          </button>
-          <button className={mode === 'agent' ? 'active' : ''} onClick={() => setMode('agent')}>
-            Agent
-          </button>
-        </div>
-
-        <nav className="primary-nav" aria-label="Azioni">
-          <button onClick={startNew}>
-            <span className="nav-icon">+</span>
-            Nuova Chat
-          </button>
-          <button onClick={() => refreshSessions()}>
-            <span className="nav-icon">S</span>
-            {isLoadingSessions ? 'Carico sessioni' : 'Aggiorna sessioni'}
-          </button>
-        </nav>
-
-        <section className="settings-block">
-          <label>
-            Working directory
-            <input value={cwd} onChange={(event) => setCwd(event.target.value)} />
-          </label>
-          <label>
-            Modello
-            <input
-              value={model}
-              placeholder="default CLI"
-              onChange={(event) => setModel(event.target.value)}
-            />
-          </label>
-        </section>
-
-        <section className="history">
-          <div className="section-row">
-            <span>Grok</span>
-            <button onClick={() => refreshSessions('grok')}>Aggiorna</button>
+    <main className={isSidebarHidden ? 'grok-shell sidebar-collapsed' : 'grok-shell'}>
+      {!isSidebarHidden && (
+        <aside className="grok-sidebar">
+          <div className="sidebar-head">
+            <div className="brand-logo" style={logoStyle} aria-label="GrokUI" />
+            <button
+              className="collapse-button"
+              aria-label="Nascondi menu"
+              title="Nascondi menu"
+              onClick={() => setIsSidebarHidden(true)}
+            >
+              &lt;&lt;
+            </button>
           </div>
-          <div className="history-list">
-            {sessions.grok.map((session) => (
-              <button
-                key={session.id}
-                className={
-                  mode === 'grok' && activeConversation.activeSessionId === session.id
-                    ? 'history-item active'
-                    : 'history-item'
-                }
-                onClick={() => openSession('grok', session)}
-              >
-                <strong>{sessionTitle(session)}</strong>
-                <span>
-                  {session.updated} - {session.status}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
 
-        <section className="history">
-          <div className="section-row">
-            <span>Agent</span>
-            <button onClick={() => refreshSessions('agent')}>Aggiorna</button>
+          <div className="mode-tabs" aria-label="Modalita">
+            <button className={mode === 'grok' ? 'active' : ''} onClick={() => setMode('grok')}>
+              Grok
+            </button>
+            <button className={mode === 'agent' ? 'active' : ''} onClick={() => setMode('agent')}>
+              Agent
+            </button>
           </div>
-          <div className="history-list">
-            {sessions.agent.map((session) => (
-              <button
-                key={session.id}
-                className={
-                  mode === 'agent' && activeConversation.activeSessionId === session.id
-                    ? 'history-item active'
-                    : 'history-item'
-                }
-                onClick={() => openSession('agent', session)}
-              >
-                <strong>{sessionTitle(session)}</strong>
-                <span>
-                  {session.updated} - {session.status}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
 
-        <div className="account">
-          <div className="avatar">L</div>
-          <div>
-            <strong>lorenzo_aiello</strong>
-            <span>{cwd}</span>
+          <nav className="primary-nav" aria-label="Azioni">
+            <button onClick={startNew}>
+              <span className="nav-icon">+</span>
+              Nuova Chat
+            </button>
+            <button onClick={() => refreshSessions()}>
+              <span className="nav-icon">R</span>
+              {isLoadingSessions ? 'Carico sessioni' : 'Aggiorna sessioni'}
+            </button>
+          </nav>
+
+          <section className="settings-block">
+            <label>
+              Working directory
+              <input value={cwd} onChange={(event) => setCwd(event.target.value)} />
+            </label>
+            <label>
+              Modello
+              <input
+                value={model}
+                placeholder="default CLI"
+                onChange={(event) => setModel(event.target.value)}
+              />
+            </label>
+          </section>
+
+          <section className="history">
+            <div className="section-row">
+              <span>Grok</span>
+              <button onClick={() => refreshSessions('grok')}>Aggiorna</button>
+            </div>
+            <div className="history-list">
+              {visibleSessions.grok.map((session) => renderSession('grok', session))}
+            </div>
+          </section>
+
+          <section className="history">
+            <div className="section-row">
+              <span>Agent</span>
+              <button onClick={() => refreshSessions('agent')}>Aggiorna</button>
+            </div>
+            <div className="history-list">
+              {visibleSessions.agent.length === 0 && (
+                <p className="empty-list">Nessuna sessione Agent assegnata.</p>
+              )}
+              {visibleSessions.agent.map((session) => renderSession('agent', session))}
+            </div>
+          </section>
+
+          <div className="account">
+            <div className="avatar">L</div>
+            <div>
+              <strong>lorenzo_aiello</strong>
+              <span>{cwd}</span>
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      )}
 
       <section className="chat-surface">
         <header className="chat-topbar">
-          <div>
-            <p>{mode === 'grok' ? 'Grok CLI' : 'Agent CLI'}</p>
-            <h1>{selectedSession ? sessionTitle(selectedSession) : 'Nuova conversazione'}</h1>
+          <div className="topbar-title">
+            {isSidebarHidden && (
+              <button className="show-menu-button" onClick={() => setIsSidebarHidden(false)}>
+                &gt;&gt;
+              </button>
+            )}
+            <div>
+              <p>{mode === 'grok' ? 'Grok CLI' : 'Agent CLI'}</p>
+              <h1>
+                {selectedSession
+                  ? sessionTitle(selectedSession, prefs.aliases)
+                  : 'Nuova conversazione'}
+              </h1>
+            </div>
           </div>
           <div className="topbar-actions">
             <button className="share-button" onClick={() => refreshAllSessions()}>
@@ -329,8 +599,8 @@ function App(): React.JSX.Element {
 
         {error && <div className="error-banner">{error}</div>}
 
-        <div className="conversation">
-          {!activeConversation.transcript && !activeConversation.liveOutput && (
+        <div className="conversation" ref={scrollerRef}>
+          {activeConversation.messages.length === 0 && (
             <div className="empty-state">
               <h2>{mode === 'grok' ? 'Parla con Grok' : 'Avvia Agent'}</h2>
               <p>
@@ -340,23 +610,46 @@ function App(): React.JSX.Element {
             </div>
           )}
 
-          {activeConversation.transcript && (
-            <article className="transcript">
-              <pre>{activeConversation.transcript}</pre>
+          {activeConversation.messages.map((message) => (
+            <article key={message.id} className={`chat-message ${message.role}`}>
+              <div className="message-author">
+                {message.role === 'user' ? 'Tu' : message.role === 'assistant' ? mode : 'Sistema'}
+              </div>
+              <pre>{message.content}</pre>
+              {extractMediaLinks(message.content).length > 0 && (
+                <div className="media-actions">
+                  {extractMediaLinks(message.content).map((link) => (
+                    <button key={link} onClick={() => window.api.openMedia(link)}>
+                      {/\.(mp4|webm)$/i.test(link) ? 'View Video' : 'View Image'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {message.media && message.media.length > 0 && (
+                <div className="media-actions">
+                  {message.media.map((link) => (
+                    <button key={link} onClick={() => window.api.openMedia(link)}>
+                      {/\.(mp4|webm)$/i.test(link) ? 'View Video' : 'View Image'}
+                    </button>
+                  ))}
+                </div>
+              )}
             </article>
-          )}
+          ))}
 
-          {activeConversation.liveOutput && (
-            <article className="transcript live">
-              <pre>{activeConversation.liveOutput}</pre>
+          {activeConversation.activeRunId && (
+            <article className="chat-message assistant pending">
+              <div className="message-author">{mode}</div>
+              <div className="typing-indicator" aria-label="Risposta in corso">
+                <span />
+                <span />
+                <span />
+              </div>
             </article>
           )}
         </div>
 
         <form className="composer" onSubmit={sendPrompt}>
-          <button className="add-button" type="button" onClick={startNew} aria-label="Nuova chat">
-            +
-          </button>
           <input
             value={prompt}
             placeholder={
@@ -364,14 +657,55 @@ function App(): React.JSX.Element {
             }
             onChange={(event) => setPrompt(event.target.value)}
           />
-          <button className="tool-button" type="button" onClick={() => refreshSessions()}>
-            S
-          </button>
           <button className="voice-button" disabled={!prompt.trim() || isSending}>
             {isSending ? '...' : 'Invia'}
           </button>
         </form>
       </section>
+
+      {contextMenu && (
+        <div className="session-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
+          <button onClick={() => renameSession(contextMenu.session)}>Rinomina</button>
+          {contextMenu.mode === 'grok' && (
+            <button onClick={() => moveToAgent(contextMenu.session)}>Aggiungi ad Agent</button>
+          )}
+          <button onClick={() => hideSession(contextMenu.mode, contextMenu.session)}>
+            Nascondi solo in app
+          </button>
+        </div>
+      )}
+
+      {renameTarget && (
+        <div className="dialog-backdrop" onClick={() => setRenameTarget(undefined)}>
+          <form
+            className="rename-dialog"
+            onSubmit={(event) => {
+              event.preventDefault()
+              confirmRename()
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <label>
+              Rinomina sessione
+              <input
+                value={renameTarget.value}
+                autoFocus
+                onChange={(event) =>
+                  setRenameTarget((current) =>
+                    current ? { ...current, value: event.target.value } : current
+                  )
+                }
+              />
+            </label>
+            <div className="dialog-actions">
+              <button type="button" onClick={() => setRenameTarget(undefined)}>
+                Annulla
+              </button>
+              <button type="submit">Salva</button>
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   )
 }

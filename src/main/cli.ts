@@ -1,7 +1,10 @@
 import { BrowserWindow } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { randomUUID } from 'crypto'
+import type { Dirent } from 'fs'
+import { readdir } from 'fs/promises'
 import { homedir } from 'os'
+import { join } from 'path'
 import type {
   CliMode,
   CliRunRequest,
@@ -11,6 +14,7 @@ import type {
 } from '../shared/types'
 
 const running = new Map<string, ChildProcessWithoutNullStreams>()
+const streamBuffers = new Map<string, { stdout: string; stderr: string }>()
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
@@ -29,50 +33,112 @@ function emit(window: BrowserWindow, event: CliStreamEvent): void {
   window.webContents.send('cli:stream', event)
 }
 
-function extractTextFromJson(data: unknown): string | undefined {
-  if (!data || typeof data !== 'object') return undefined
+function extractTextFromJson(data: unknown, depth = 0): string | undefined {
+  if (depth > 8 || data == null) return undefined
 
-  const record = data as Record<string, unknown>
-  const directFields = ['text', 'content', 'delta', 'message']
-
-  for (const field of directFields) {
-    const value = record[field]
-    if (typeof value === 'string' && value.trim()) return value
+  if (typeof data === 'string') {
+    return data.trim() ? data : undefined
   }
 
-  const nested = record.data
-  if (nested && typeof nested === 'object') {
-    return extractTextFromJson(nested)
+  if (Array.isArray(data)) {
+    const parts = data
+      .map((item) => extractTextFromJson(item, depth + 1))
+      .filter((item): item is string => Boolean(item))
+
+    return parts.length > 0 ? parts.join('') : undefined
+  }
+
+  if (typeof data !== 'object') return undefined
+
+  const record = data as Record<string, unknown>
+  const priorityFields = [
+    'text',
+    'content',
+    'delta',
+    'message',
+    'output',
+    'response',
+    'markdown',
+    'summary'
+  ]
+
+  for (const field of priorityFields) {
+    const extracted = extractTextFromJson(record[field], depth + 1)
+    if (extracted) return extracted
+  }
+
+  for (const [key, value] of Object.entries(record)) {
+    if (priorityFields.includes(key)) continue
+    const extracted = extractTextFromJson(value, depth + 1)
+    if (extracted) return extracted
   }
 
   return undefined
 }
 
-function emitLines(
+function extractStreamingText(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined
+
+  const record = data as Record<string, unknown>
+  const type = typeof record.type === 'string' ? record.type : undefined
+
+  if (type === 'text') {
+    return typeof record.data === 'string' ? record.data : extractTextFromJson(record.data)
+  }
+
+  return undefined
+}
+
+function emitLine(
+  window: BrowserWindow,
+  runId: string,
+  mode: CliMode,
+  kind: 'stdout' | 'stderr',
+  line: string
+): void {
+  if (!line.trim()) return
+
+  if (kind === 'stdout') {
+    try {
+      const data = JSON.parse(line) as unknown
+      const extracted = extractStreamingText(data)
+      emit(window, { runId, mode, kind: 'json', data })
+      if (extracted) emit(window, { runId, mode, kind: 'text', text: extracted })
+      return
+    } catch {
+      // Plain output falls through to stdout text.
+    }
+  }
+
+  emit(window, { runId, mode, kind, text: line })
+}
+
+function emitBufferedLines(
   window: BrowserWindow,
   runId: string,
   mode: CliMode,
   kind: 'stdout' | 'stderr',
   chunk: Buffer
 ): void {
-  const text = stripAnsi(chunk.toString('utf-8'))
-  const lines = text.split(/\r?\n/).filter(Boolean)
+  const buffers = streamBuffers.get(runId)
+  if (!buffers) return
+
+  const text = buffers[kind] + stripAnsi(chunk.toString('utf-8'))
+  const lines = text.split(/\r?\n/)
+  buffers[kind] = lines.pop() ?? ''
 
   for (const line of lines) {
-    if (kind === 'stdout') {
-      try {
-        const data = JSON.parse(line) as unknown
-        const extracted = extractTextFromJson(data)
-        emit(window, { runId, mode, kind: 'json', data })
-        if (extracted) emit(window, { runId, mode, kind: 'text', text: extracted })
-        continue
-      } catch {
-        // Plain output falls through to stdout text.
-      }
-    }
-
-    emit(window, { runId, mode, kind, text: line })
+    emitLine(window, runId, mode, kind, line)
   }
+}
+
+function flushStreamBuffer(window: BrowserWindow, runId: string, mode: CliMode): void {
+  const buffers = streamBuffers.get(runId)
+  if (!buffers) return
+
+  emitLine(window, runId, mode, 'stdout', buffers.stdout)
+  emitLine(window, runId, mode, 'stderr', buffers.stderr)
+  streamBuffers.delete(runId)
 }
 
 function runCli(args: string[], cwd: string, mode: CliMode): Promise<string> {
@@ -139,6 +205,60 @@ export async function exportSession(
   return runCli(['export', sessionId], cwd, mode)
 }
 
+async function findSessionDirectory(
+  root: string,
+  sessionId: string,
+  depth = 0
+): Promise<string | undefined> {
+  if (depth > 4) return undefined
+
+  let entries: Dirent[]
+  try {
+    entries = await readdir(root, { withFileTypes: true })
+  } catch {
+    return undefined
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const fullPath = join(root, entry.name)
+    if (entry.name === sessionId) return fullPath
+    const found = await findSessionDirectory(fullPath, sessionId, depth + 1)
+    if (found) return found
+  }
+
+  return undefined
+}
+
+export async function listSessionMedia(sessionId: string): Promise<string[]> {
+  const sessionRoot = join(homedir(), '.grok', 'sessions')
+  const sessionDirectory = await findSessionDirectory(sessionRoot, sessionId)
+  if (!sessionDirectory) return []
+
+  const mediaDirectories = ['images', 'videos']
+  const extensions = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm'])
+  const media: string[] = []
+
+  for (const directory of mediaDirectories) {
+    const mediaDirectory = join(sessionDirectory, directory)
+    let entries: Dirent[]
+
+    try {
+      entries = await readdir(mediaDirectory, { withFileTypes: true })
+    } catch {
+      continue
+    }
+
+    for (const entry of entries) {
+      if (!entry.isFile()) continue
+      const extension = entry.name.slice(entry.name.lastIndexOf('.')).toLowerCase()
+      if (extensions.has(extension)) media.push(join(mediaDirectory, entry.name))
+    }
+  }
+
+  return media
+}
+
 export function startCliRun(window: BrowserWindow, request: CliRunRequest): CliRunStarted {
   const runId = randomUUID()
   const args = [
@@ -165,13 +285,14 @@ export function startCliRun(window: BrowserWindow, request: CliRunRequest): CliR
   })
 
   running.set(runId, child)
+  streamBuffers.set(runId, { stdout: '', stderr: '' })
 
   child.stdout.on('data', (chunk: Buffer) => {
-    emitLines(window, runId, request.mode, 'stdout', chunk)
+    emitBufferedLines(window, runId, request.mode, 'stdout', chunk)
   })
 
   child.stderr.on('data', (chunk: Buffer) => {
-    emitLines(window, runId, request.mode, 'stderr', chunk)
+    emitBufferedLines(window, runId, request.mode, 'stderr', chunk)
   })
 
   child.on('error', (error) => {
@@ -180,6 +301,7 @@ export function startCliRun(window: BrowserWindow, request: CliRunRequest): CliR
   })
 
   child.on('close', (code) => {
+    flushStreamBuffer(window, runId, request.mode)
     running.delete(runId)
     emit(window, { runId, mode: request.mode, kind: 'exit', code })
   })
@@ -192,5 +314,6 @@ export function stopCliRun(runId: string): boolean {
   if (!child) return false
   child.kill()
   running.delete(runId)
+  streamBuffers.delete(runId)
   return true
 }
