@@ -7,6 +7,12 @@ import type {
   CliStreamEvent
 } from '../shared/types'
 
+type SelectedFile = {
+  path: string
+  name: string
+  mediaType: 'image' | 'video' | 'file'
+}
+
 type GrokUiApi = {
   listSessions: (mode: CliMode, cwd: string, limit?: number) => Promise<CliSession[]>
   exportSession: (mode: CliMode, cwd: string, sessionId: string) => Promise<string>
@@ -14,7 +20,9 @@ type GrokUiApi = {
   startCli: (request: CliRunRequest) => Promise<CliRunStarted>
   stopCli: (runId: string) => Promise<boolean>
   openMedia: (target: string) => Promise<void>
-  selectFiles: () => Promise<string[]>
+  readPreferences: () => Promise<unknown | null>
+  writePreferences: (value: unknown) => Promise<void>
+  selectFiles: () => Promise<SelectedFile[]>
   getFilePath: (file: File) => string
   onCliStream: (callback: (event: CliStreamEvent) => void) => () => void
 }

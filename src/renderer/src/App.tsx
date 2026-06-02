@@ -44,6 +44,7 @@ type RenameState = {
 type AttachedFile = {
   path: string
   name: string
+  mediaType: 'image' | 'video' | 'file'
 }
 
 const initialConversations: Record<CliMode, ConversationState> = {
@@ -78,8 +79,22 @@ function loadPrefs(): SessionPrefs {
   }
 }
 
-function savePrefs(prefs: SessionPrefs): void {
-  localStorage.setItem(prefsKey, JSON.stringify(prefs))
+function normalizePrefs(value: unknown): SessionPrefs {
+  const defaults = getDefaultPrefs()
+  if (!value || typeof value !== 'object') return defaults
+
+  const record = value as Partial<SessionPrefs>
+  return {
+    hidden: {
+      grok: Array.isArray(record.hidden?.grok) ? record.hidden.grok : defaults.hidden.grok,
+      agent: Array.isArray(record.hidden?.agent) ? record.hidden.agent : defaults.hidden.agent
+    },
+    aliases:
+      record.aliases && typeof record.aliases === 'object' ? record.aliases : defaults.aliases,
+    agentSessionIds: Array.isArray(record.agentSessionIds)
+      ? record.agentSessionIds
+      : defaults.agentSessionIds
+  }
 }
 
 function sessionTitle(session: CliSession, aliases: Record<string, string>): string {
@@ -92,6 +107,38 @@ function filenameFromPath(path: string): string {
 
 function displayNameFromPath(path: string): string {
   return path.split(/[\\/]/).pop() ?? path
+}
+
+function extensionFromPath(path: string): string {
+  return path.split('.').pop()?.toLowerCase() ?? ''
+}
+
+function mediaTypeFromPath(path: string): AttachedFile['mediaType'] {
+  const extension = extensionFromPath(path)
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension)) return 'image'
+  if (['mp4', 'webm'].includes(extension)) return 'video'
+  return 'file'
+}
+
+function createAttachedFile(path: string): AttachedFile {
+  const mediaType = mediaTypeFromPath(path)
+  return {
+    path,
+    name: displayNameFromPath(path),
+    mediaType
+  }
+}
+
+function createDroppedFile(file: File): AttachedFile | undefined {
+  const path = window.api.getFilePath(file)
+  if (!path) return undefined
+
+  const mediaType = mediaTypeFromPath(path)
+  return {
+    path,
+    name: file.name || displayNameFromPath(path),
+    mediaType
+  }
 }
 
 function messageRoleFromHeading(heading: string): ChatMessage['role'] {
@@ -202,18 +249,20 @@ function App(): React.JSX.Element {
   const [sessions, setSessions] = useState<Record<CliMode, CliSession[]>>({ grok: [], agent: [] })
   const [conversations, setConversations] =
     useState<Record<CliMode, ConversationState>>(initialConversations)
-  const [prefs, setPrefs] = useState<SessionPrefs>(() => loadPrefs())
+  const [prefs, setPrefs] = useState<SessionPrefs>(() => getDefaultPrefs())
   const [isSidebarHidden, setIsSidebarHidden] = useState(false)
   const [contextMenu, setContextMenu] = useState<ContextMenuState>()
   const [renameTarget, setRenameTarget] = useState<RenameState>()
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [isDraggingFile, setIsDraggingFile] = useState(false)
+  const [showScrollBottom, setShowScrollBottom] = useState(false)
   const [isLoadingSessions, setIsLoadingSessions] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string>()
 
   const scrollerRef = useRef<HTMLDivElement>(null)
   const sessionMediaRef = useRef<Record<string, string[]>>({})
+  const prefsLoadedRef = useRef(false)
   const logoStyle = { '--logo': `url(${grokLogo})` } as CSSProperties
   const activeConversation = conversations[mode]
 
@@ -235,14 +284,38 @@ function App(): React.JSX.Element {
   )
 
   useEffect(() => {
-    savePrefs(prefs)
-  }, [prefs])
+    void window.api.readPreferences().then((storedPrefs) => {
+      setPrefs(storedPrefs ? normalizePrefs(storedPrefs) : loadPrefs())
+      prefsLoadedRef.current = true
+    })
+  }, [])
 
   useEffect(() => {
+    if (!prefsLoadedRef.current) return
+    void window.api.writePreferences(prefs)
+  }, [prefs])
+
+  const updateScrollBottomVisibility = (): void => {
     const scroller = scrollerRef.current
     if (!scroller) return
 
-    scroller.scrollTop = scroller.scrollHeight
+    const distanceFromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
+    setShowScrollBottom(distanceFromBottom > 180)
+  }
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'auto'): void => {
+    const scroller = scrollerRef.current
+    if (!scroller) return
+
+    scroller.scrollTo({
+      top: scroller.scrollHeight,
+      behavior
+    })
+    setShowScrollBottom(false)
+  }
+
+  useEffect(() => {
+    scrollToBottom()
   }, [activeConversation.messages])
 
   useEffect(() => {
@@ -405,12 +478,7 @@ function App(): React.JSX.Element {
     setIsSending(false)
   }
 
-  const addAttachedPaths = (paths: string[]): void => {
-    const nextFiles = paths
-      .map((path) => path.trim())
-      .filter(Boolean)
-      .map((path) => ({ path, name: displayNameFromPath(path) }))
-
+  const addAttachedFiles = (nextFiles: AttachedFile[]): void => {
     if (nextFiles.length === 0) return
 
     setAttachedFiles((current) =>
@@ -418,20 +486,29 @@ function App(): React.JSX.Element {
     )
   }
 
+  const addAttachedPaths = (paths: string[]): void => {
+    addAttachedFiles(
+      paths
+        .map((path) => path.trim())
+        .filter(Boolean)
+        .map(createAttachedFile)
+    )
+  }
+
   const selectFiles = async (): Promise<void> => {
-    const paths = await window.api.selectFiles()
-    addAttachedPaths(paths)
+    const files = await window.api.selectFiles()
+    addAttachedFiles(files)
   }
 
   const dropFiles = (event: DragEvent<HTMLElement>): void => {
     event.preventDefault()
     setIsDraggingFile(false)
 
-    const paths = Array.from(event.dataTransfer.files)
-      .map((file) => window.api.getFilePath(file))
-      .filter(Boolean)
+    const files = Array.from(event.dataTransfer.files)
+      .map(createDroppedFile)
+      .filter((file): file is AttachedFile => Boolean(file))
 
-    addAttachedPaths(paths)
+    addAttachedFiles(files)
   }
 
   const removeAttachedFile = (path: string): void => {
@@ -548,6 +625,25 @@ function App(): React.JSX.Element {
       </span>
     </button>
   )
+
+  const renderMediaActions = (links: string[]): React.JSX.Element | undefined => {
+    const uniqueLinks = Array.from(new Set(links))
+    if (uniqueLinks.length === 0) return undefined
+
+    return (
+      <div className="media-actions">
+        {uniqueLinks.map((link) => {
+          const mediaType = mediaTypeFromPath(link)
+
+          return (
+            <button key={link} className="media-action" onClick={() => window.api.openMedia(link)}>
+              <span>{mediaType === 'video' ? 'View Video' : 'View Image'}</span>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <main className={isSidebarHidden ? 'grok-shell sidebar-collapsed' : 'grok-shell'}>
@@ -672,7 +768,7 @@ function App(): React.JSX.Element {
 
         {error && <div className="error-banner">{error}</div>}
 
-        <div className="conversation" ref={scrollerRef}>
+        <div className="conversation" ref={scrollerRef} onScroll={updateScrollBottomVisibility}>
           {activeConversation.messages.length === 0 && (
             <div className="empty-state">
               <h2>{mode === 'grok' ? 'Parla con Grok' : 'Avvia Agent'}</h2>
@@ -689,24 +785,10 @@ function App(): React.JSX.Element {
                 {message.role === 'user' ? 'Tu' : message.role === 'assistant' ? mode : 'Sistema'}
               </div>
               <pre>{message.content}</pre>
-              {extractMediaLinks(message.content).length > 0 && (
-                <div className="media-actions">
-                  {extractMediaLinks(message.content).map((link) => (
-                    <button key={link} onClick={() => window.api.openMedia(link)}>
-                      {/\.(mp4|webm)$/i.test(link) ? 'View Video' : 'View Image'}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {message.media && message.media.length > 0 && (
-                <div className="media-actions">
-                  {message.media.map((link) => (
-                    <button key={link} onClick={() => window.api.openMedia(link)}>
-                      {/\.(mp4|webm)$/i.test(link) ? 'View Video' : 'View Image'}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {renderMediaActions([
+                ...extractMediaLinks(message.content),
+                ...(message.media ?? [])
+              ])}
             </article>
           ))}
 
@@ -721,6 +803,17 @@ function App(): React.JSX.Element {
             </article>
           )}
         </div>
+
+        {showScrollBottom && (
+          <button
+            className="scroll-bottom-button"
+            type="button"
+            title="Vai all'ultimo messaggio"
+            onClick={() => scrollToBottom('smooth')}
+          >
+            ↓
+          </button>
+        )}
 
         <div className="composer-stack">
           {attachedFiles.length > 0 && (

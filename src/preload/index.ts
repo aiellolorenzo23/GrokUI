@@ -12,6 +12,8 @@ const api = {
   startCli: (request: CliRunRequest) => ipcRenderer.invoke('cli:start', request),
   stopCli: (runId: string) => ipcRenderer.invoke('cli:stop', runId),
   openMedia: (target: string) => ipcRenderer.invoke('app:open-media', target),
+  readPreferences: () => ipcRenderer.invoke('app:read-preferences'),
+  writePreferences: (value: unknown) => ipcRenderer.invoke('app:write-preferences', value),
   selectFiles: () => ipcRenderer.invoke('app:select-files'),
   getFilePath: (file: File) => webUtils.getPathForFile(file),
   onCliStream: (callback: (event: CliStreamEvent) => void) => {

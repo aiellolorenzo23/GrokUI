@@ -467,8 +467,11 @@ button:disabled {
   margin-top: 12px;
 }
 
-.media-actions button {
+.media-action {
+  display: inline-flex;
   min-height: 34px;
+  align-items: center;
+  gap: 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0 14px;
@@ -477,7 +480,7 @@ button:disabled {
   font-weight: 720;
 }
 
-.media-actions button:hover {
+.media-action:hover {
   background: var(--hover);
 }
 
@@ -646,6 +649,29 @@ button:disabled {
   font-weight: 760;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+.scroll-bottom-button {
+  position: absolute;
+  left: 50%;
+  bottom: 92px;
+  z-index: 7;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: #101113;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  font-size: 18px;
+  font-weight: 800;
+  transform: translateX(-50%);
+}
+
+.scroll-bottom-button:hover {
+  background: var(--hover);
 }
 
 .session-menu {

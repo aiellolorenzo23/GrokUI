@@ -25,6 +25,40 @@ function commandFor(mode: CliMode): string {
   return mode === 'agent' ? 'agent' : 'grok'
 }
 
+function formatCliError(mode: CliMode, error: Error): string {
+  const command = commandFor(mode)
+
+  if ('code' in error && error.code === 'ENOENT') {
+    return `Comando "${command}" non trovato. Verifica che Grok CLI sia installata e che "${command}" sia disponibile nel PATH.`
+  }
+
+  return error.message
+}
+
+function formatCliFailure(
+  mode: CliMode,
+  code: number | null,
+  stderr: string,
+  stdout: string
+): string {
+  const command = commandFor(mode)
+  const output = (stderr || stdout).trim()
+
+  if (/auth|login|token|credential/i.test(output)) {
+    return `Grok CLI sembra richiedere login o credenziali aggiornate. Esegui "${command} login" da terminale e riprova.`
+  }
+
+  if (/permission|forbidden|unauthorized/i.test(output)) {
+    return `Grok CLI ha rifiutato la richiesta per permessi o autorizzazione. Controlla login, piano e configurazione della CLI.`
+  }
+
+  if (/not found|not recognized|is not recognized/i.test(output)) {
+    return `Comando "${command}" non disponibile. Verifica installazione e PATH della Grok CLI.`
+  }
+
+  return output || `${command} exited with code ${code}`
+}
+
 function defaultCwd(cwd?: string): string {
   return cwd?.trim() || homedir()
 }
@@ -160,12 +194,14 @@ function runCli(args: string[], cwd: string, mode: CliMode): Promise<string> {
       stderr += stripAnsi(chunk.toString('utf-8'))
     })
 
-    child.on('error', reject)
+    child.on('error', (error) => {
+      reject(new Error(formatCliError(mode, error)))
+    })
     child.on('close', (code) => {
       if (code === 0) {
         resolve(stdout)
       } else {
-        reject(new Error(stderr || stdout || `${commandFor(mode)} exited with code ${code}`))
+        reject(new Error(formatCliFailure(mode, code, stderr, stdout)))
       }
     })
   })
@@ -297,7 +333,12 @@ export function startCliRun(window: BrowserWindow, request: CliRunRequest): CliR
 
   child.on('error', (error) => {
     running.delete(runId)
-    emit(window, { runId, mode: request.mode, kind: 'error', text: error.message })
+    emit(window, {
+      runId,
+      mode: request.mode,
+      kind: 'error',
+      text: formatCliError(request.mode, error)
+    })
   })
 
   child.on('close', (code) => {

@@ -1,4 +1,5 @@
 import { app, shell, BrowserWindow, dialog, ipcMain } from 'electron'
+import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -55,6 +56,41 @@ async function openMediaTarget(target: string): Promise<void> {
   await shell.openPath(target)
 }
 
+function mediaTypeForPath(target: string): 'image' | 'video' | 'file' {
+  if (/\.(png|jpe?g|webp|gif)$/i.test(target)) return 'image'
+  if (/\.(mp4|webm)$/i.test(target)) return 'video'
+  return 'file'
+}
+
+function createFileAttachment(path: string): {
+  path: string
+  name: string
+  mediaType: 'image' | 'video' | 'file'
+} {
+  return {
+    path,
+    name: path.split(/[\\/]/).pop() ?? path,
+    mediaType: mediaTypeForPath(path)
+  }
+}
+
+function prefsPath(): string {
+  return join(app.getPath('userData'), 'preferences.json')
+}
+
+async function readPreferences(): Promise<unknown | null> {
+  try {
+    return JSON.parse(await readFile(prefsPath(), 'utf-8')) as unknown
+  } catch {
+    return null
+  }
+}
+
+async function writePreferences(value: unknown): Promise<void> {
+  await mkdir(app.getPath('userData'), { recursive: true })
+  await writeFile(prefsPath(), JSON.stringify(value, null, 2), 'utf-8')
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -85,6 +121,8 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('cli:stop', (_, runId) => stopCliRun(runId))
   ipcMain.handle('app:open-media', (_, target) => openMediaTarget(target))
+  ipcMain.handle('app:read-preferences', () => readPreferences())
+  ipcMain.handle('app:write-preferences', (_, value) => writePreferences(value))
   ipcMain.handle('app:select-files', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {
@@ -99,7 +137,7 @@ app.whenReady().then(() => {
       ? await dialog.showOpenDialog(window, options)
       : await dialog.showOpenDialog(options)
 
-    return result.canceled ? [] : result.filePaths
+    return result.canceled ? [] : result.filePaths.map(createFileAttachment)
   })
 
   app.on('activate', function () {
