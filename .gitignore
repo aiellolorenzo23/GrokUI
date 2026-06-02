@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+release/
+*.asar
+*.asar.unpacked/
+
+# Electron Builder artifacts
+*.blockmap
+*.snap
+*.AppImage
+*.deb
+*.rpm
+*.dmg
+*.exe
+*.msi
+
+# Logs and caches
+.eslintcache
+.vite/
+.cache/
+.tmp/
+tmp/
+temp/
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and OS files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local-only config
+dev-app-update.yml
