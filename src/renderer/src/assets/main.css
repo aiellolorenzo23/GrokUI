@@ -394,7 +394,7 @@ button:disabled {
   flex-direction: column;
   gap: 20px;
   overflow: auto;
-  padding: 10px 24px 158px;
+  padding: 10px 24px 188px;
 }
 
 .empty-state {
@@ -519,14 +519,57 @@ button:disabled {
   }
 }
 
-.composer {
+.composer-stack {
   position: absolute;
   left: 50%;
   bottom: 22px;
   display: grid;
   width: min(760px, calc(100% - 48px));
+  gap: 8px;
+  transform: translateX(-50%);
+}
+
+.attachment-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  max-width: min(260px, 100%);
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 10px 0 12px;
+  color: var(--text);
+  background: #101113;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.attachment-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-chip strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.attachment-chip:hover {
+  background: var(--hover);
+}
+
+.composer {
+  display: grid;
+  width: 100%;
   min-height: 50px;
-  grid-template-columns: minmax(0, 1fr) minmax(58px, auto);
+  grid-template-columns: 34px minmax(0, 1fr) minmax(58px, auto);
   align-items: center;
   gap: 4px;
   padding: 6px;
@@ -534,7 +577,6 @@ button:disabled {
   border-radius: 999px;
   background: var(--pill);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
-  transform: translateX(-50%);
 }
 
 .composer input {
@@ -551,6 +593,7 @@ button:disabled {
   color: #8a8f96;
 }
 
+.attach-button,
 .voice-button {
   display: grid;
   height: 34px;
@@ -561,11 +604,48 @@ button:disabled {
   background: transparent;
 }
 
+.attach-button {
+  width: 34px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.attach-button:hover {
+  background: var(--hover);
+}
+
 .voice-button {
   padding: 0 14px;
   background: #24272b;
   font-size: 12px;
   font-weight: 760;
+}
+
+.chat-surface.dragging-file::after {
+  position: absolute;
+  inset: 12px;
+  z-index: 8;
+  border: 1px dashed rgba(255, 255, 255, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  content: '';
+  pointer-events: none;
+}
+
+.drop-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 94px;
+  z-index: 9;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 13px;
+  color: var(--text);
+  background: #101113;
+  font-size: 12px;
+  font-weight: 760;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .session-menu {

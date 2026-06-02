@@ -14,6 +14,8 @@ type GrokUiApi = {
   startCli: (request: CliRunRequest) => Promise<CliRunStarted>
   stopCli: (runId: string) => Promise<boolean>
   openMedia: (target: string) => Promise<void>
+  selectFiles: () => Promise<string[]>
+  getFilePath: (file: File) => string
   onCliStream: (callback: (event: CliStreamEvent) => void) => () => void
 }
 

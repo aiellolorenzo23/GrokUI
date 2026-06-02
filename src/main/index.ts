@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, dialog, ipcMain } from 'electron'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -85,6 +85,22 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('cli:stop', (_, runId) => stopCliRun(runId))
   ipcMain.handle('app:open-media', (_, target) => openMediaTarget(target))
+  ipcMain.handle('app:select-files', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Media', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm'] },
+        { name: 'All files', extensions: ['*'] }
+      ]
+    }
+
+    const result = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options)
+
+    return result.canceled ? [] : result.filePaths
+  })
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

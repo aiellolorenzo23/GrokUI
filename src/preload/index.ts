@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { CliMode, CliRunRequest, CliStreamEvent } from '../shared/types'
 
@@ -12,6 +12,8 @@ const api = {
   startCli: (request: CliRunRequest) => ipcRenderer.invoke('cli:start', request),
   stopCli: (runId: string) => ipcRenderer.invoke('cli:stop', runId),
   openMedia: (target: string) => ipcRenderer.invoke('app:open-media', target),
+  selectFiles: () => ipcRenderer.invoke('app:select-files'),
+  getFilePath: (file: File) => webUtils.getPathForFile(file),
   onCliStream: (callback: (event: CliStreamEvent) => void) => {
     const listener = (_: Electron.IpcRendererEvent, payload: CliStreamEvent): void =>
       callback(payload)

@@ -1,4 +1,12 @@
-import { type CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type DragEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 import type { CliMode, CliSession, CliStreamEvent } from '../../shared/types'
 import grokLogo from '../../../resources/logo.svg'
 
@@ -31,6 +39,11 @@ type ContextMenuState = {
 type RenameState = {
   session: CliSession
   value: string
+}
+
+type AttachedFile = {
+  path: string
+  name: string
 }
 
 const initialConversations: Record<CliMode, ConversationState> = {
@@ -75,6 +88,10 @@ function sessionTitle(session: CliSession, aliases: Record<string, string>): str
 
 function filenameFromPath(path: string): string {
   return path.split(/[\\/]/).pop()?.toLowerCase() ?? path.toLowerCase()
+}
+
+function displayNameFromPath(path: string): string {
+  return path.split(/[\\/]/).pop() ?? path
 }
 
 function messageRoleFromHeading(heading: string): ChatMessage['role'] {
@@ -189,6 +206,8 @@ function App(): React.JSX.Element {
   const [isSidebarHidden, setIsSidebarHidden] = useState(false)
   const [contextMenu, setContextMenu] = useState<ContextMenuState>()
   const [renameTarget, setRenameTarget] = useState<RenameState>()
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [isLoadingSessions, setIsLoadingSessions] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string>()
@@ -386,13 +405,55 @@ function App(): React.JSX.Element {
     setIsSending(false)
   }
 
+  const addAttachedPaths = (paths: string[]): void => {
+    const nextFiles = paths
+      .map((path) => path.trim())
+      .filter(Boolean)
+      .map((path) => ({ path, name: displayNameFromPath(path) }))
+
+    if (nextFiles.length === 0) return
+
+    setAttachedFiles((current) =>
+      Array.from(new Map([...current, ...nextFiles].map((file) => [file.path, file])).values())
+    )
+  }
+
+  const selectFiles = async (): Promise<void> => {
+    const paths = await window.api.selectFiles()
+    addAttachedPaths(paths)
+  }
+
+  const dropFiles = (event: DragEvent<HTMLElement>): void => {
+    event.preventDefault()
+    setIsDraggingFile(false)
+
+    const paths = Array.from(event.dataTransfer.files)
+      .map((file) => window.api.getFilePath(file))
+      .filter(Boolean)
+
+    addAttachedPaths(paths)
+  }
+
+  const removeAttachedFile = (path: string): void => {
+    setAttachedFiles((current) => current.filter((file) => file.path !== path))
+  }
+
+  const buildPrompt = (text: string): string => {
+    if (attachedFiles.length === 0) return text
+
+    const fileBlock = `File allegati:\n${attachedFiles.map((file) => file.path).join('\n')}`
+    return text ? `${text}\n\n${fileBlock}` : fileBlock
+  }
+
   const sendPrompt = async (event: FormEvent): Promise<void> => {
     event.preventDefault()
 
     const text = prompt.trim()
-    if (!text || isSending) return
+    if ((!text && attachedFiles.length === 0) || isSending) return
 
+    const outgoingPrompt = buildPrompt(text)
     setPrompt('')
+    setAttachedFiles([])
     setIsSending(true)
     setError(undefined)
 
@@ -400,7 +461,10 @@ function App(): React.JSX.Element {
       ...current,
       [mode]: {
         ...current[mode],
-        messages: [...current[mode].messages, { id: createId(), role: 'user', content: text }]
+        messages: [
+          ...current[mode].messages,
+          { id: createId(), role: 'user', content: outgoingPrompt }
+        ]
       }
     }))
 
@@ -408,7 +472,7 @@ function App(): React.JSX.Element {
       const started = await window.api.startCli({
         mode,
         cwd,
-        prompt: text,
+        prompt: outgoingPrompt,
         sessionId: activeConversation.activeSessionId,
         model
       })
@@ -420,6 +484,7 @@ function App(): React.JSX.Element {
     } catch (reason) {
       setIsSending(false)
       setPrompt(text)
+      addAttachedPaths(attachedFiles.map((file) => file.path))
       setError(reason instanceof Error ? reason.message : String(reason))
     }
   }
@@ -568,7 +633,15 @@ function App(): React.JSX.Element {
         </aside>
       )}
 
-      <section className="chat-surface">
+      <section
+        className={isDraggingFile ? 'chat-surface dragging-file' : 'chat-surface'}
+        onDragOver={(event) => {
+          event.preventDefault()
+          setIsDraggingFile(true)
+        }}
+        onDragLeave={() => setIsDraggingFile(false)}
+        onDrop={dropFiles}
+      >
         <header className="chat-topbar">
           <div className="topbar-title">
             {isSidebarHidden && (
@@ -649,18 +722,49 @@ function App(): React.JSX.Element {
           )}
         </div>
 
-        <form className="composer" onSubmit={sendPrompt}>
-          <input
-            value={prompt}
-            placeholder={
-              mode === 'grok' ? 'Chiedi qualsiasi cosa a Grok' : 'Dai un compito ad Agent'
-            }
-            onChange={(event) => setPrompt(event.target.value)}
-          />
-          <button className="voice-button" disabled={!prompt.trim() || isSending}>
-            {isSending ? '...' : 'Invia'}
-          </button>
-        </form>
+        <div className="composer-stack">
+          {attachedFiles.length > 0 && (
+            <div className="attachment-tray">
+              {attachedFiles.map((file) => (
+                <button
+                  key={file.path}
+                  className="attachment-chip"
+                  type="button"
+                  title={file.path}
+                  onClick={() => removeAttachedFile(file.path)}
+                >
+                  <span>{file.name}</span>
+                  <strong>x</strong>
+                </button>
+              ))}
+            </div>
+          )}
+          <form className="composer" onSubmit={sendPrompt}>
+            <button
+              className="attach-button"
+              type="button"
+              title="Allega file"
+              onClick={selectFiles}
+            >
+              +
+            </button>
+            <input
+              value={prompt}
+              placeholder={
+                mode === 'grok' ? 'Chiedi qualsiasi cosa a Grok' : 'Dai un compito ad Agent'
+              }
+              onChange={(event) => setPrompt(event.target.value)}
+            />
+            <button
+              className="voice-button"
+              disabled={(!prompt.trim() && attachedFiles.length === 0) || isSending}
+            >
+              {isSending ? '...' : 'Invia'}
+            </button>
+          </form>
+        </div>
+
+        {isDraggingFile && <div className="drop-hint">Rilascia per allegare il path</div>}
       </section>
 
       {contextMenu && (
