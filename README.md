@@ -23,6 +23,7 @@ L'app avvia i comandi `grok` e `agent` dietro le quinte, senza finestre CMD visi
 - recupero sessioni esistenti tramite `grok sessions list` e `agent sessions list`
 - apertura transcript tramite `grok export` e `agent export`
 - output streaming renderizzato come chat
+- renderer messaggi con paragrafi markdown, inline code, liste, citazioni e code block con triple backtick
 - indicatore di risposta in corso nella conversazione
 - stop della generazione in corso
 - working directory configurabile
@@ -164,7 +165,7 @@ Nota: `build:win` esegue prima `npm run build` (icone, typecheck e build Electro
 - I file allegati non vengono caricati dall'app: viene inviato solo il path locale come testo.
 - Le sessioni visibili possono cambiare in base alla working directory usata con `grok` o `agent`.
 - Il comportamento di alcune funzioni puo cambiare se cambia la CLI sottostante.
-- Il renderer dei messaggi e ancora testuale: supporta bene testo e ritorni a capo, ma non rende ancora markdown avanzato o blocchi di codice strutturati.
+- Il renderer messaggi supporta markdown leggero e code block, ma non include ancora un parser markdown completo con tutte le estensioni possibili.
 
 ## English
 
@@ -191,6 +192,7 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - existing session discovery via `grok sessions list` and `agent sessions list`
 - transcript loading via `grok export` and `agent export`
 - streaming output rendered as chat messages
+- message renderer with markdown paragraphs, inline code, lists, quotes, and triple-backtick code blocks
 - in-chat pending response indicator
 - stop current generation
 - configurable working directory
@@ -332,4 +334,4 @@ Note: `build:win` runs `npm run build` first (icons, typecheck, and Electron bui
 - Attached files are not uploaded by the app: only the local path is sent as plain text.
 - Visible sessions may change depending on the working directory used with `grok` or `agent`.
 - Some app behavior may change when the underlying CLI changes.
-- The message renderer is still text-first: it handles plain text and line breaks well, but it does not yet render advanced markdown or structured code blocks.
+- The message renderer supports lightweight markdown and code blocks, but it is not yet a full markdown parser with every possible extension.

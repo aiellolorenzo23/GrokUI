@@ -32,6 +32,8 @@ export type Dictionary = {
   system: string
   responseInProgress: string
   scrollToLatest: string
+  copyCode: string
+  copied: string
   attachFile: string
   askGrokPlaceholder: string
   agentTaskPlaceholder: string
@@ -80,6 +82,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     system: 'Sistema',
     responseInProgress: 'Risposta in corso',
     scrollToLatest: "Vai all'ultimo messaggio",
+    copyCode: 'Copia',
+    copied: 'Copiato',
     attachFile: 'Allega file',
     askGrokPlaceholder: 'Chiedi qualsiasi cosa a Grok',
     agentTaskPlaceholder: 'Dai un compito ad Agent',
@@ -126,6 +130,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     system: 'System',
     responseInProgress: 'Response in progress',
     scrollToLatest: 'Go to latest message',
+    copyCode: 'Copy',
+    copied: 'Copied',
     attachFile: 'Attach file',
     askGrokPlaceholder: 'Ask Grok anything',
     agentTaskPlaceholder: 'Give Agent a task',

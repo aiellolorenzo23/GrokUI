@@ -456,7 +456,6 @@ button:disabled {
 .message-content {
   display: grid;
   gap: 12px;
-  white-space: pre-wrap;
   word-break: break-word;
   font-family:
     Inter,
@@ -470,6 +469,134 @@ button:disabled {
 
 .message-content p {
   margin: 0;
+  white-space: pre-wrap;
+}
+
+.message-content code {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  padding: 0.1em 0.38em;
+  background: rgba(255, 255, 255, 0.06);
+  font-family: 'Cascadia Code', Consolas, 'SFMono-Regular', monospace;
+  font-size: 0.94em;
+}
+
+.message-code-block {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    #0a0d11;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+.message-code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.message-code-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.message-code-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.message-code-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  opacity: 0.85;
+}
+
+.message-code-dots span:nth-child(1) {
+  background: #ff7b72;
+}
+
+.message-code-dots span:nth-child(2) {
+  background: #f2cc60;
+}
+
+.message-code-dots span:nth-child(3) {
+  background: #7ee787;
+}
+
+.message-code-language {
+  color: #c7ccd2;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.message-code-copy {
+  min-height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.message-code-copy:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.message-code-block pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0)),
+    #0a0d11;
+  white-space: pre;
+}
+
+.message-code-block pre code {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #e6edf3;
+  font-size: 13px;
+  line-height: 1.72;
+}
+
+.message-list,
+.message-quote {
+  margin: 0;
+}
+
+.message-list {
+  display: grid;
+  gap: 6px;
+  padding-left: 22px;
+}
+
+.message-list li {
+  white-space: pre-wrap;
+}
+
+.message-quote {
+  display: grid;
+  gap: 8px;
+  border-left: 3px solid var(--line);
+  padding-left: 14px;
+  color: var(--muted);
 }
 
 .media-actions {

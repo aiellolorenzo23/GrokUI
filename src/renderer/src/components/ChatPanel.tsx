@@ -1,16 +1,209 @@
-import type { DragEvent, FormEvent, RefObject } from 'react'
+import { useState, type DragEvent, type FormEvent, type RefObject } from 'react'
 import type { CliMode } from '../../../shared/types'
 import type { AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
 
-function MessageContent({ content }: { content: string }): React.JSX.Element {
-  const blocks = content.split(/\n{2,}/).filter((block) => block.length > 0)
+type InlineToken =
+  | { type: 'text'; value: string }
+  | { type: 'code'; value: string }
+
+type MarkdownBlock =
+  | { type: 'paragraph'; text: string }
+  | { type: 'code'; code: string; language: string }
+  | { type: 'list'; ordered: boolean; items: string[] }
+  | { type: 'quote'; lines: string[] }
+
+function parseInlineTokens(text: string): InlineToken[] {
+  const tokens: InlineToken[] = []
+  const pattern = /`([^`]+)`/g
+  let lastIndex = 0
+
+  for (const match of text.matchAll(pattern)) {
+    const index = match.index ?? 0
+    if (index > lastIndex) {
+      tokens.push({ type: 'text', value: text.slice(lastIndex, index) })
+    }
+
+    tokens.push({ type: 'code', value: match[1] })
+    lastIndex = index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    tokens.push({ type: 'text', value: text.slice(lastIndex) })
+  }
+
+  return tokens.length > 0 ? tokens : [{ type: 'text', value: text }]
+}
+
+function renderInlineContent(text: string): React.JSX.Element[] {
+  return parseInlineTokens(text).map((token, index) =>
+    token.type === 'code' ? (
+      <code key={`${token.type}_${index}`}>{token.value}</code>
+    ) : (
+      <span key={`${token.type}_${index}`}>{token.value}</span>
+    )
+  )
+}
+
+function parseMarkdownBlocks(content: string): MarkdownBlock[] {
+  const normalized = content.replace(/\r\n/g, '\n')
+  const lines = normalized.split('\n')
+  const blocks: MarkdownBlock[] = []
+  let index = 0
+
+  while (index < lines.length) {
+    const line = lines[index]
+    const trimmed = line.trim()
+
+    if (!trimmed) {
+      index += 1
+      continue
+    }
+
+    if (trimmed.startsWith('```')) {
+      const language = trimmed.slice(3).trim()
+      const codeLines: string[] = []
+      index += 1
+
+      while (index < lines.length && !lines[index].trim().startsWith('```')) {
+        codeLines.push(lines[index])
+        index += 1
+      }
+
+      if (index < lines.length) index += 1
+      blocks.push({ type: 'code', code: codeLines.join('\n'), language })
+      continue
+    }
+
+    if (/^>\s?/.test(trimmed)) {
+      const quoteLines: string[] = []
+
+      while (index < lines.length && /^>\s?/.test(lines[index].trim())) {
+        quoteLines.push(lines[index].trim().replace(/^>\s?/, ''))
+        index += 1
+      }
+
+      blocks.push({ type: 'quote', lines: quoteLines })
+      continue
+    }
+
+    if (/^([-*])\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
+      const ordered = /^\d+\.\s+/.test(trimmed)
+      const items: string[] = []
+
+      while (index < lines.length) {
+        const current = lines[index].trim()
+        const matchesCurrent = ordered ? /^\d+\.\s+/.test(current) : /^([-*])\s+/.test(current)
+        if (!matchesCurrent) break
+
+        items.push(current.replace(ordered ? /^\d+\.\s+/ : /^([-*])\s+/, ''))
+        index += 1
+      }
+
+      blocks.push({ type: 'list', ordered, items })
+      continue
+    }
+
+    const paragraphLines: string[] = []
+    while (index < lines.length) {
+      const current = lines[index]
+      const currentTrimmed = current.trim()
+      if (
+        !currentTrimmed ||
+        currentTrimmed.startsWith('```') ||
+        /^>\s?/.test(currentTrimmed) ||
+        /^([-*])\s+/.test(currentTrimmed) ||
+        /^\d+\.\s+/.test(currentTrimmed)
+      ) {
+        break
+      }
+
+      paragraphLines.push(current)
+      index += 1
+    }
+
+    blocks.push({ type: 'paragraph', text: paragraphLines.join('\n') })
+  }
+
+  return blocks
+}
+
+function CodeBlock({
+  code,
+  language,
+  t
+}: {
+  code: string
+  language: string
+  t: Dictionary
+}): React.JSX.Element {
+  const [didCopy, setDidCopy] = useState(false)
+
+  const copyCode = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setDidCopy(true)
+      window.setTimeout(() => setDidCopy(false), 1600)
+    } catch {
+      setDidCopy(false)
+    }
+  }
+
+  return (
+    <section className="message-code-block">
+      <div className="message-code-toolbar">
+        <div className="message-code-meta">
+          <span className="message-code-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+          <span className="message-code-language">{language || 'text'}</span>
+        </div>
+        <button className="message-code-copy" type="button" onClick={() => void copyCode()}>
+          {didCopy ? t.copied : t.copyCode}
+        </button>
+      </div>
+      <pre>
+        <code>{code}</code>
+      </pre>
+    </section>
+  )
+}
+
+function MessageContent({ content, t }: { content: string; t: Dictionary }): React.JSX.Element {
+  const blocks = parseMarkdownBlocks(content)
 
   return (
     <div className="message-content">
-      {blocks.map((block, index) => (
-        <p key={`${index}_${block.slice(0, 24)}`}>{block}</p>
-      ))}
+      {blocks.map((block, index) => {
+        if (block.type === 'code') {
+          return <CodeBlock key={`code_${index}`} code={block.code} language={block.language} t={t} />
+        }
+
+        if (block.type === 'quote') {
+          return (
+            <blockquote key={`quote_${index}`} className="message-quote">
+              {block.lines.map((line, lineIndex) => (
+                <p key={`quote_line_${lineIndex}`}>{renderInlineContent(line)}</p>
+              ))}
+            </blockquote>
+          )
+        }
+
+        if (block.type === 'list') {
+          const ListTag = block.ordered ? 'ol' : 'ul'
+          return (
+            <ListTag key={`list_${index}`} className="message-list">
+              {block.items.map((item, itemIndex) => (
+                <li key={`item_${itemIndex}`}>{renderInlineContent(item)}</li>
+              ))}
+            </ListTag>
+          )
+        }
+
+        return <p key={`paragraph_${index}`}>{renderInlineContent(block.text)}</p>
+      })}
     </div>
   )
 }
@@ -121,7 +314,7 @@ export function ChatPanel({
             <div className="message-author">
               {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
             </div>
-            <MessageContent content={message.content} />
+            <MessageContent content={message.content} t={t} />
             {renderMediaActions([...(message.mediaLinks ?? []), ...(message.media ?? [])])}
           </article>
         ))}
