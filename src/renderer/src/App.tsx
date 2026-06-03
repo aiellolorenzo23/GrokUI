@@ -22,9 +22,9 @@ import { RenameDialog } from './components/RenameDialog'
 import { SessionContextMenu } from './components/SessionContextMenu'
 import { Sidebar } from './components/Sidebar'
 import {
-  initialConversations,
   type AssistantViewMode,
   type AttachedFile,
+  type ConversationState,
   type ContextMenuState,
   type RenameState
 } from './appTypes'
@@ -55,6 +55,29 @@ function clampContextMenuPosition(x: number, y: number): { x: number; y: number 
   }
 }
 
+function getDraftConversationKey(mode: CliMode): string {
+  return `${mode}:draft`
+}
+
+function getSessionConversationKey(mode: CliMode, sessionId: string): string {
+  return `${mode}:session:${sessionId}`
+}
+
+function createEmptyConversationState(): ConversationState {
+  return { messages: [] }
+}
+
+function findConversationKeyByRunId(
+  conversations: Record<string, ConversationState>,
+  mode: CliMode,
+  runId: string
+): string | undefined {
+  const prefix = `${mode}:`
+  return Object.entries(conversations).find(
+    ([key, conversation]) => key.startsWith(prefix) && conversation.activeRunId === runId
+  )?.[0]
+}
+
 function App(): React.JSX.Element {
   const [locale, setLocale] = useState(
     () => window.api.bootstrap.systemLocale || navigator.language || 'en'
@@ -65,7 +88,14 @@ function App(): React.JSX.Element {
   const [model, setModel] = useState('')
   const [prompt, setPrompt] = useState('')
   const [sessions, setSessions] = useState<Record<CliMode, CliSession[]>>({ grok: [], agent: [] })
-  const [conversations, setConversations] = useState(initialConversations)
+  const [conversations, setConversations] = useState<Record<string, ConversationState>>(() => ({
+    [getDraftConversationKey('grok')]: createEmptyConversationState(),
+    [getDraftConversationKey('agent')]: createEmptyConversationState()
+  }))
+  const [activeConversationKeys, setActiveConversationKeys] = useState<Record<CliMode, string>>({
+    grok: getDraftConversationKey('grok'),
+    agent: getDraftConversationKey('agent')
+  })
   const [prefs, setPrefs] = useAppPreferences()
   const [isSidebarHidden, setIsSidebarHidden] = useState(false)
   const [contextMenu, setContextMenu] = useState<ContextMenuState>()
@@ -74,7 +104,6 @@ function App(): React.JSX.Element {
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
   const [loadingState, setLoadingState] = useState({ all: false, grok: false, agent: false })
-  const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string>()
 
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -82,7 +111,8 @@ function App(): React.JSX.Element {
   const localeRef = useRef(locale)
   const initialRefreshDoneRef = useRef(false)
   const logoStyle = { '--logo': `url(${grokLogo})` } as CSSProperties
-  const activeConversation = conversations[mode]
+  const activeConversationKey = activeConversationKeys[mode]
+  const activeConversation = conversations[activeConversationKey] ?? createEmptyConversationState()
   const t = useMemo(() => getDictionary(locale), [locale])
 
   useEffect(() => {
@@ -229,23 +259,53 @@ function App(): React.JSX.Element {
         const sessionId = typeof data?.sessionId === 'string' ? data.sessionId : undefined
 
         if (data?.type === 'context-usage') {
-          setConversations((current) => ({
-            ...current,
-            [event.mode]: {
-              ...current[event.mode],
-              contextUsage: data as unknown as CliContextUsage
+          setConversations((current) => {
+            const key = findConversationKeyByRunId(current, event.mode, event.runId)
+            if (!key) return current
+            return {
+              ...current,
+              [key]: {
+                ...current[key],
+                contextUsage: data as unknown as CliContextUsage
+              }
             }
-          }))
+          })
           return
         }
 
         if (data?.type === 'end' && sessionId) {
           setConversations((current) => {
-            const target = current[event.mode]
-            if (target.activeRunId !== event.runId) return current
+            const key = findConversationKeyByRunId(current, event.mode, event.runId)
+            if (!key) return current
+
+            const target = current[key]
+            const sessionKey = getSessionConversationKey(event.mode, sessionId)
+            const nextConversation = { ...target, activeSessionId: sessionId }
+
+            if (key === sessionKey) {
+              return { ...current, [key]: nextConversation }
+            }
+
+            const nextState = {
+              ...current,
+              [sessionKey]: nextConversation
+            }
+
+            delete nextState[key]
+
+            if (!nextState[getDraftConversationKey(event.mode)]) {
+              nextState[getDraftConversationKey(event.mode)] = createEmptyConversationState()
+            }
+
+            return nextState
+          })
+
+          setActiveConversationKeys((current) => {
+            const key = findConversationKeyByRunId(conversations, event.mode, event.runId)
+            if (!key || current[event.mode] !== key) return current
             return {
               ...current,
-              [event.mode]: { ...target, activeSessionId: sessionId }
+              [event.mode]: getSessionConversationKey(event.mode, sessionId)
             }
           })
 
@@ -255,10 +315,15 @@ function App(): React.JSX.Element {
 
             if (newMedia.length > 0) {
               setConversations((conversationState) => {
-                const target = conversationState[event.mode]
+                const key =
+                  conversationState[getSessionConversationKey(event.mode, sessionId)]
+                    ? getSessionConversationKey(event.mode, sessionId)
+                    : findConversationKeyByRunId(conversationState, event.mode, event.runId)
+                if (!key) return conversationState
+                const target = conversationState[key]
                 return {
                   ...conversationState,
-                  [event.mode]: {
+                  [key]: {
                     ...target,
                     messages: appendMediaToLastAssistant(target.messages, newMedia)
                   }
@@ -274,8 +339,9 @@ function App(): React.JSX.Element {
       }
 
       setConversations((current) => {
-        const target = current[event.mode]
-        if (target.activeRunId !== event.runId) return current
+        const key = findConversationKeyByRunId(current, event.mode, event.runId)
+        if (!key) return current
+        const target = current[key]
 
         if (event.kind === 'text' || event.kind === 'stdout') {
           const chunk = event.text ?? ''
@@ -292,13 +358,13 @@ function App(): React.JSX.Element {
             messages.push(createChatMessage('assistant', chunk))
           }
 
-          return { ...current, [event.mode]: { ...target, messages } }
+          return { ...current, [key]: { ...target, messages } }
         }
 
         if (event.kind === 'stderr' || event.kind === 'error') {
           return {
             ...current,
-            [event.mode]: {
+            [key]: {
               ...target,
               messages: [
                 ...target.messages,
@@ -314,14 +380,13 @@ function App(): React.JSX.Element {
         }
 
         if (event.kind === 'exit') {
-          setIsSending(false)
           const sessionId = target.activeSessionId
           if (sessionId) {
             void window.api.listSessionMedia(sessionId).then((media) => {
               sessionMediaRef.current = { ...sessionMediaRef.current, [sessionId]: media }
             })
           }
-          return { ...current, [event.mode]: { ...target, activeRunId: undefined } }
+          return { ...current, [key]: { ...target, activeRunId: undefined } }
         }
 
         return current
@@ -332,18 +397,23 @@ function App(): React.JSX.Element {
   const openSession = async (targetMode: CliMode, session: CliSession): Promise<void> => {
     setMode(targetMode)
     setError(undefined)
+    const conversationKey = getSessionConversationKey(targetMode, session.id)
+    setActiveConversationKeys((current) => ({ ...current, [targetMode]: conversationKey }))
 
     try {
       const transcript = await window.api.exportSession(targetMode, cwd, session.id)
       const media = await window.api.listSessionMedia(session.id)
       setConversations((current) => ({
         ...current,
-        [targetMode]: {
-          messages: transcriptToMessages(transcript, media),
-          activeSessionId: session.id,
-          activeRunId: undefined,
-          contextUsage: undefined
-        }
+        [conversationKey]:
+          current[conversationKey]?.activeRunId
+            ? { ...current[conversationKey], activeSessionId: session.id }
+            : {
+                messages: transcriptToMessages(transcript, media),
+                activeSessionId: session.id,
+                activeRunId: undefined,
+                contextUsage: current[conversationKey]?.contextUsage
+              }
       }))
       sessionMediaRef.current = { ...sessionMediaRef.current, [session.id]: media }
     } catch (reason) {
@@ -352,10 +422,12 @@ function App(): React.JSX.Element {
   }
 
   const startNew = (): void => {
+    const draftKey = getDraftConversationKey(mode)
     setConversations((current) => ({
       ...current,
-      [mode]: { messages: [], activeSessionId: undefined, activeRunId: undefined, contextUsage: undefined }
+      [draftKey]: createEmptyConversationState()
     }))
+    setActiveConversationKeys((current) => ({ ...current, [mode]: draftKey }))
     setPrompt('')
   }
 
@@ -363,7 +435,6 @@ function App(): React.JSX.Element {
     const runId = activeConversation.activeRunId
     if (!runId) return
     await window.api.stopCli(runId)
-    setIsSending(false)
   }
 
   const addAttachedFiles = (nextFiles: AttachedFile[]): void => {
@@ -414,20 +485,22 @@ function App(): React.JSX.Element {
     event.preventDefault()
 
     const text = prompt.trim()
-    if ((!text && attachedFiles.length === 0) || isSending) return
+    if ((!text && attachedFiles.length === 0) || activeConversation.activeRunId) return
 
     const currentFiles = attachedFiles
     const outgoingPrompt = buildPrompt(text)
     setPrompt('')
     setAttachedFiles([])
-    setIsSending(true)
     setError(undefined)
 
     setConversations((current) => ({
       ...current,
-      [mode]: {
-        ...current[mode],
-        messages: [...current[mode].messages, createChatMessage('user', outgoingPrompt)]
+      [activeConversationKey]: {
+        ...(current[activeConversationKey] ?? createEmptyConversationState()),
+        messages: [
+          ...(current[activeConversationKey]?.messages ?? []),
+          createChatMessage('user', outgoingPrompt)
+        ]
       }
     }))
 
@@ -442,10 +515,12 @@ function App(): React.JSX.Element {
 
       setConversations((current) => ({
         ...current,
-        [mode]: { ...current[mode], activeRunId: started.runId }
+        [activeConversationKey]: {
+          ...(current[activeConversationKey] ?? createEmptyConversationState()),
+          activeRunId: started.runId
+        }
       }))
     } catch (reason) {
-      setIsSending(false)
       setPrompt(text)
       addAttachedPaths(currentFiles.map((file) => file.path))
       setError(reason instanceof Error ? reason.message : String(reason))
@@ -578,7 +653,7 @@ function App(): React.JSX.Element {
         setPrompt={setPrompt}
         sendPrompt={sendPrompt}
         onComposerKeyDown={onComposerKeyDown}
-        isSending={isSending}
+        isSending={Boolean(activeConversation.activeRunId)}
         selectFiles={selectFiles}
         isDraggingFile={isDraggingFile}
         onDragOver={(event) => {

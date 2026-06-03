@@ -836,7 +836,7 @@ button:disabled {
   line-height: 1.72;
 }
 
-.assistant-view-cli .chat-message.assistant .message-content {
+.assistant-view-cli .message-content {
   gap: 10px;
   color: #d7d7d7;
   font-family: 'Cascadia Mono', Consolas, 'SFMono-Regular', monospace;
@@ -844,7 +844,7 @@ button:disabled {
   line-height: 1.62;
 }
 
-.assistant-view-cli .chat-message.assistant .message-author {
+.assistant-view-cli .message-author {
   color: #9aa0a6;
   letter-spacing: 0.08em;
 }
@@ -878,10 +878,10 @@ button:disabled {
   text-decoration-thickness: 1.5px;
 }
 
-.assistant-view-cli .chat-message.assistant .message-content h1,
-.assistant-view-cli .chat-message.assistant .message-content h2,
-.assistant-view-cli .chat-message.assistant .message-content h3,
-.assistant-view-cli .chat-message.assistant .message-content h4 {
+.assistant-view-cli .message-content h1,
+.assistant-view-cli .message-content h2,
+.assistant-view-cli .message-content h3,
+.assistant-view-cli .message-content h4 {
   color: #c792ea;
   font-size: 14px;
   font-weight: 700;
@@ -1146,13 +1146,13 @@ button:disabled {
   color: #d7dbe0;
 }
 
-.assistant-view-cli .chat-message.assistant .message-table {
+.assistant-view-cli .message-table {
   font-family: 'Cascadia Mono', Consolas, 'SFMono-Regular', monospace;
   font-size: 12.5px;
 }
 
-.assistant-view-cli .chat-message.assistant .message-table th,
-.assistant-view-cli .chat-message.assistant .message-table td {
+.assistant-view-cli .message-table th,
+.assistant-view-cli .message-table td {
   border-color: rgba(255, 255, 255, 0.18);
   padding: 7px 9px;
 }
@@ -1387,12 +1387,25 @@ button:disabled {
   padding: 8px 2px 7px 0;
   color: var(--text);
   background: transparent;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: 14px;
   outline: none;
   resize: none;
   user-select: text;
   overflow-y: auto;
   field-sizing: content;
   line-height: 1.45;
+}
+
+.assistant-view-cli .composer textarea {
+  font-family: 'Cascadia Mono', Consolas, 'SFMono-Regular', monospace;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .composer textarea::placeholder {
