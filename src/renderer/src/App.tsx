@@ -518,7 +518,7 @@ function App(): React.JSX.Element {
   const buildPrompt = (text: string): string => {
     if (attachedFiles.length === 0) return text
 
-    const fileBlock = `File allegati:\n${attachedFiles.map((file) => file.path).join('\n')}`
+    const fileBlock = `File attachments:\n${attachedFiles.map((file) => file.path).join('\n')}`
     return text ? `${text}\n\n${fileBlock}` : fileBlock
   }
 
