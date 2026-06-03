@@ -6,12 +6,37 @@ import type { Dictionary } from '../i18n'
 type InlineToken =
   | { type: 'text'; value: string }
   | { type: 'code'; value: string }
+  | { type: 'strong'; value: string }
 
 type MarkdownBlock =
+  | { type: 'heading'; level: number; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'code'; code: string; language: string }
   | { type: 'list'; ordered: boolean; items: string[] }
   | { type: 'quote'; lines: string[] }
+  | { type: 'table'; headers: string[]; rows: string[][] }
+
+function parseStyledSegment(segment: string): InlineToken[] {
+  const tokens: InlineToken[] = []
+  const pattern = /(\*\*([^*]+)\*\*)/g
+  let lastIndex = 0
+
+  for (const match of segment.matchAll(pattern)) {
+    const index = match.index ?? 0
+    if (index > lastIndex) {
+      tokens.push({ type: 'text', value: segment.slice(lastIndex, index) })
+    }
+
+    tokens.push({ type: 'strong', value: match[2] })
+    lastIndex = index + match[0].length
+  }
+
+  if (lastIndex < segment.length) {
+    tokens.push({ type: 'text', value: segment.slice(lastIndex) })
+  }
+
+  return tokens.length > 0 ? tokens : [{ type: 'text', value: segment }]
+}
 
 function parseInlineTokens(text: string): InlineToken[] {
   const tokens: InlineToken[] = []
@@ -21,7 +46,7 @@ function parseInlineTokens(text: string): InlineToken[] {
   for (const match of text.matchAll(pattern)) {
     const index = match.index ?? 0
     if (index > lastIndex) {
-      tokens.push({ type: 'text', value: text.slice(lastIndex, index) })
+      tokens.push(...parseStyledSegment(text.slice(lastIndex, index)))
     }
 
     tokens.push({ type: 'code', value: match[1] })
@@ -29,7 +54,7 @@ function parseInlineTokens(text: string): InlineToken[] {
   }
 
   if (lastIndex < text.length) {
-    tokens.push({ type: 'text', value: text.slice(lastIndex) })
+    tokens.push(...parseStyledSegment(text.slice(lastIndex)))
   }
 
   return tokens.length > 0 ? tokens : [{ type: 'text', value: text }]
@@ -39,10 +64,30 @@ function renderInlineContent(text: string): React.JSX.Element[] {
   return parseInlineTokens(text).map((token, index) =>
     token.type === 'code' ? (
       <code key={`${token.type}_${index}`}>{token.value}</code>
+    ) : token.type === 'strong' ? (
+      <strong key={`${token.type}_${index}`}>{token.value}</strong>
     ) : (
       <span key={`${token.type}_${index}`}>{token.value}</span>
     )
   )
+}
+
+function isTableLine(line: string): boolean {
+  const trimmed = line.trim()
+  return trimmed.includes('|') && trimmed.startsWith('|') && trimmed.endsWith('|')
+}
+
+function isTableSeparator(line: string): boolean {
+  return /^\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?$/.test(line.trim())
+}
+
+function parseTableRow(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim())
 }
 
 function parseMarkdownBlocks(content: string): MarkdownBlock[] {
@@ -56,6 +101,17 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
     const trimmed = line.trim()
 
     if (!trimmed) {
+      index += 1
+      continue
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/)
+    if (headingMatch) {
+      blocks.push({
+        type: 'heading',
+        level: headingMatch[1].length,
+        text: headingMatch[2].trim()
+      })
       index += 1
       continue
     }
@@ -87,6 +143,24 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       continue
     }
 
+    if (
+      index + 1 < lines.length &&
+      isTableLine(line) &&
+      isTableSeparator(lines[index + 1])
+    ) {
+      const headers = parseTableRow(line)
+      const rows: string[][] = []
+      index += 2
+
+      while (index < lines.length && isTableLine(lines[index])) {
+        rows.push(parseTableRow(lines[index]))
+        index += 1
+      }
+
+      blocks.push({ type: 'table', headers, rows })
+      continue
+    }
+
     if (/^([-*])\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
       const ordered = /^\d+\.\s+/.test(trimmed)
       const items: string[] = []
@@ -110,7 +184,11 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       const currentTrimmed = current.trim()
       if (
         !currentTrimmed ||
+        /^(#{1,6})\s+(.+)$/.test(currentTrimmed) ||
         currentTrimmed.startsWith('```') ||
+        (index + 1 < lines.length &&
+          isTableLine(current) &&
+          isTableSeparator(lines[index + 1])) ||
         /^>\s?/.test(currentTrimmed) ||
         /^([-*])\s+/.test(currentTrimmed) ||
         /^\d+\.\s+/.test(currentTrimmed)
@@ -181,6 +259,11 @@ function MessageContent({ content, t }: { content: string; t: Dictionary }): Rea
           return <CodeBlock key={`code_${index}`} code={block.code} language={block.language} t={t} />
         }
 
+        if (block.type === 'heading') {
+          const HeadingTag = `h${Math.min(block.level, 4)}` as 'h1' | 'h2' | 'h3' | 'h4'
+          return <HeadingTag key={`heading_${index}`}>{renderInlineContent(block.text)}</HeadingTag>
+        }
+
         if (block.type === 'quote') {
           return (
             <blockquote key={`quote_${index}`} className="message-quote">
@@ -199,6 +282,31 @@ function MessageContent({ content, t }: { content: string; t: Dictionary }): Rea
                 <li key={`item_${itemIndex}`}>{renderInlineContent(item)}</li>
               ))}
             </ListTag>
+          )
+        }
+
+        if (block.type === 'table') {
+          return (
+            <div key={`table_${index}`} className="message-table-wrap">
+              <table className="message-table">
+                <thead>
+                  <tr>
+                    {block.headers.map((header, headerIndex) => (
+                      <th key={`header_${headerIndex}`}>{renderInlineContent(header)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, rowIndex) => (
+                    <tr key={`row_${rowIndex}`}>
+                      {row.map((cell, cellIndex) => (
+                        <td key={`cell_${rowIndex}_${cellIndex}`}>{renderInlineContent(cell)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )
         }
 

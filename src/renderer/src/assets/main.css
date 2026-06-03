@@ -472,6 +472,21 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4 {
+  margin: 0;
+  color: #d6a8ff;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.message-content strong {
+  font-weight: 800;
+}
+
 .message-content code {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 7px;
@@ -597,6 +612,34 @@ button:disabled {
   border-left: 3px solid var(--line);
   padding-left: 14px;
   color: var(--muted);
+}
+
+.message-table-wrap {
+  overflow-x: auto;
+}
+
+.message-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.message-table th,
+.message-table td {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 8px 10px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.message-table th {
+  color: #f2f4f7;
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 800;
+}
+
+.message-table td {
+  color: #d7dbe0;
 }
 
 .media-actions {
