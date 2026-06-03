@@ -25,13 +25,15 @@ L'app avvia i comandi `grok` e `agent` dietro le quinte, senza finestre CMD visi
 - output streaming renderizzato come chat
 - renderer messaggi con paragrafi markdown, inline code, grassetto, corsivo, barrato, heading, separatori, liste, task list, citazioni, tabelle e code block con triple backtick
 - syntax highlighting reale nei code block
+- rilevamento automatico della lingua nei code block non etichettati, con fallback sicuro a plain text
+- controlli rapidi sui code block con copia, wrap/no-wrap e numeri di riga
 - indicatore di risposta in corso nella conversazione
 - stop della generazione in corso
 - working directory configurabile
 - modello configurabile, se supportato dalla CLI
 - switch tra stile visivo `GrokUI` e stile `CLI` per i messaggi assistant
 - link cliccabili per path locali, URL e link markdown nei messaggi
-- copia rapida del messaggio e dei blocchi codice
+- copia rapida del messaggio, dei blocchi codice e delle tabelle markdown
 - rinomina locale delle sessioni
 - nascondi sessione solo nella UI
 - assegnazione locale di sessioni alla sezione Agent
@@ -200,13 +202,15 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - streaming output rendered as chat messages
 - message renderer with markdown paragraphs, inline code, bold, emphasis, strikethrough, headings, rules, lists, task lists, quotes, tables, and triple-backtick code blocks
 - full syntax highlighting in code blocks
+- automatic language detection for unlabeled code blocks, with safe plain-text fallback
+- quick code-block controls with copy, wrap/no-wrap, and line numbers
 - in-chat pending response indicator
 - stop current generation
 - configurable working directory
 - configurable model, when supported by the CLI
 - switch between `GrokUI` and `CLI` visual styles for assistant messages
 - clickable local paths, URLs, and markdown links inside messages
-- quick copy for messages and code blocks
+- quick copy for messages, code blocks, and markdown tables
 - local session rename
 - hide sessions locally in the UI
 - local assignment of sessions to the Agent section

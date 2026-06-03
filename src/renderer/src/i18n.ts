@@ -40,6 +40,9 @@ export type Dictionary = {
   scrollToLatest: string
   copyCode: string
   copyMessage: string
+  copyTable: string
+  wrapCode: string
+  unwrapCode: string
   copied: string
   attachFile: string
   askGrokPlaceholder: string
@@ -97,6 +100,9 @@ const dictionaries: Record<Locale, Dictionary> = {
     scrollToLatest: "Vai all'ultimo messaggio",
     copyCode: 'Copia',
     copyMessage: 'Copia messaggio',
+    copyTable: 'Copia tabella',
+    wrapCode: 'A capo',
+    unwrapCode: 'No a capo',
     copied: 'Copiato',
     attachFile: 'Allega file',
     askGrokPlaceholder: 'Chiedi qualsiasi cosa a Grok',
@@ -152,6 +158,9 @@ const dictionaries: Record<Locale, Dictionary> = {
     scrollToLatest: 'Go to latest message',
     copyCode: 'Copy',
     copyMessage: 'Copy message',
+    copyTable: 'Copy table',
+    wrapCode: 'Wrap',
+    unwrapCode: 'No wrap',
     copied: 'Copied',
     attachFile: 'Attach file',
     askGrokPlaceholder: 'Ask Grok anything',

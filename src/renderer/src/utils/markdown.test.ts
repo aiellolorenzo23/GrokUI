@@ -8,15 +8,15 @@ import {
 
 describe('unescapeMarkdownText', () => {
   it('removes markdown escape characters for supported punctuation', () => {
-    expect(unescapeMarkdownText(String.raw`\*\*bold\*\* \[link\]`)).toBe('**bold** [link]')
+    expect(unescapeMarkdownText(String.raw`\*\*bold\*\* \[link\] \~\~x\~\~`)).toBe('**bold** [link] ~~x~~')
   })
 })
 
 describe('parseInlineTokens', () => {
-  it('parses code, strong text, markdown links, raw urls and windows paths', () => {
+  it('parses code, strong text, markdown links, markdown images, raw urls and windows paths', () => {
     expect(
       parseInlineTokens(
-        'Use `npm run dev`, open **README**, *focus* and ~~trim~~, visit https://example.com and C:\\Users\\lollo\\file.txt or [docs](https://docs.example.com).'
+        'Use `npm run dev`, open __README__, *focus* and ~~trim~~, see ![preview](file:///C:/tmp/test.png), visit <https://example.com> and C:\\Users\\lollo\\file.txt or [docs](https://docs.example.com).'
       )
     ).toEqual([
       { type: 'text', value: 'Use ' },
@@ -27,6 +27,8 @@ describe('parseInlineTokens', () => {
       { type: 'emphasis', value: 'focus' },
       { type: 'text', value: ' and ' },
       { type: 'strike', value: 'trim' },
+      { type: 'text', value: ', see ' },
+      { type: 'image', alt: 'preview', target: 'file:///C:/tmp/test.png' },
       { type: 'text', value: ', visit ' },
       { type: 'link', value: 'https://example.com', target: 'https://example.com' },
       { type: 'text', value: ' and ' },
@@ -50,10 +52,10 @@ describe('parseMarkdownBlocks', () => {
   it('parses headings, paragraphs and fenced code blocks', () => {
     expect(
       parseMarkdownBlocks(
-        ['### Title', '', 'Body line', '', '---', '', '```ts', 'const x = 1', '```'].join('\n')
+        ['Title', '===', '', 'Body line', '', '---', '', '~~~ts', 'const x = 1', '~~~'].join('\n')
       )
     ).toEqual([
-      { type: 'heading', level: 3, text: 'Title' },
+      { type: 'heading', level: 1, text: 'Title' },
       { type: 'paragraph', text: 'Body line' },
       { type: 'rule' },
       { type: 'code', language: 'ts', code: 'const x = 1' }
@@ -72,7 +74,7 @@ describe('parseMarkdownBlocks', () => {
           '- [ ] todo',
           '',
           '1. first',
-          '2. second'
+          '2) second'
         ].join('\n')
       )
     ).toEqual([
@@ -96,7 +98,7 @@ describe('parseMarkdownBlocks', () => {
   it('parses tables with alignments', () => {
     expect(
       parseMarkdownBlocks(
-        ['| Name | Count | State |', '| :--- | ---: | :---: |', '| Grok | 2 | ok |', '| Agent | 4 | run |'].join('\n')
+        ['Name | Count | State', ':--- | ---: | :---:', 'Grok | 2 | ok', 'Agent | 4 | run'].join('\n')
       )
     ).toEqual([
       {

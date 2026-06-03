@@ -4,6 +4,7 @@ export type InlineToken =
   | { type: 'strong'; value: string }
   | { type: 'emphasis'; value: string }
   | { type: 'strike'; value: string }
+  | { type: 'image'; alt: string; target: string }
   | { type: 'link'; value: string; target: string }
   | { type: 'markdown-link'; value: string; target: string }
 
@@ -35,13 +36,13 @@ function mergeAdjacentTextTokens(tokens: InlineToken[]): InlineToken[] {
 }
 
 export function unescapeMarkdownText(text: string): string {
-  return text.replace(/\\([\\`*_{}\[\]()#+\-.!|>])/g, '$1')
+  return text.replace(/\\([\\`*_~{}\[\]()#+\-.!|>])/g, '$1')
 }
 
 export function parseLinkTokens(segment: string): InlineToken[] {
   const tokens: InlineToken[] = []
   const pattern =
-    /\[([^\]]+)\]\(([^)\s]+)\)|(?:file:\/\/\/[^\s)]+|https?:\/\/[^\s)]+|[A-Za-z]:\\(?:[^<>:"/\\|?*\n\s\[\]()]+\\)*[^<>:"/\\|?*\n\s\[\](),;:]+)/g
+    /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|<((?:file:\/\/\/|https?:\/\/)[^>]+)>|(?:file:\/\/\/[^\s)]+|https?:\/\/[^\s)]+|[A-Za-z]:\\(?:[^<>:"/\\|?*\n\s\[\]()]+\\)*[^<>:"/\\|?*\n\s\[\](),;:]+)/g
   let lastIndex = 0
 
   for (const match of segment.matchAll(pattern)) {
@@ -51,15 +52,22 @@ export function parseLinkTokens(segment: string): InlineToken[] {
     }
 
     const rawTarget = match[0]
-    if (match[1] && match[2]) {
+    if (match[1] !== undefined && match[2] !== undefined) {
       tokens.push({
-        type: 'markdown-link',
-        value: match[1],
+        type: 'image',
+        alt: match[1],
         target: match[2]
       })
+    } else if (match[3] && match[4]) {
+      tokens.push({
+        type: 'markdown-link',
+        value: match[3],
+        target: match[4]
+      })
     } else {
-      const target = rawTarget.replace(/[),.;]+$/g, '')
-      const trailing = rawTarget.slice(target.length)
+      const autolinkTarget = match[5]
+      const target = (autolinkTarget ?? rawTarget).replace(/[),.;]+$/g, '')
+      const trailing = autolinkTarget ? '' : rawTarget.slice(target.length)
       tokens.push({ type: 'link', value: target, target })
       if (trailing) tokens.push({ type: 'text', value: trailing })
     }
@@ -75,7 +83,7 @@ export function parseLinkTokens(segment: string): InlineToken[] {
 
 export function parseStyledSegment(segment: string): InlineToken[] {
   const tokens: InlineToken[] = []
-  const pattern = /(\*\*([^*]+)\*\*|~~([^~]+)~~|\*([^*\n]+)\*|_([^_\n]+)_)/g
+  const pattern = /(\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*\n]+)\*|_([^_\n]+)_)/g
   let lastIndex = 0
 
   for (const match of segment.matchAll(pattern)) {
@@ -84,12 +92,14 @@ export function parseStyledSegment(segment: string): InlineToken[] {
       tokens.push(...parseLinkTokens(segment.slice(lastIndex, index)))
     }
 
-    if (match[2]) {
+    if (match[2] || match[3]) {
+      const value = match[2] ?? match[3]
       tokens.push({ type: 'strong', value: match[2] })
-    } else if (match[3]) {
-      tokens.push({ type: 'strike', value: match[3] })
+      tokens[tokens.length - 1] = { type: 'strong', value }
+    } else if (match[4]) {
+      tokens.push({ type: 'strike', value: match[4] })
     } else {
-      tokens.push({ type: 'emphasis', value: match[4] ?? match[5] })
+      tokens.push({ type: 'emphasis', value: match[5] ?? match[6] })
     }
     lastIndex = index + match[0].length
   }
@@ -125,7 +135,7 @@ export function parseInlineTokens(text: string): InlineToken[] {
 
 export function isTableLine(line: string): boolean {
   const trimmed = line.trim()
-  return trimmed.includes('|') && trimmed.startsWith('|') && trimmed.endsWith('|')
+  return trimmed.includes('|') && trimmed.split('|').length >= 2
 }
 
 export function isTableSeparator(line: string): boolean {
@@ -184,18 +194,31 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       continue
     }
 
+    const setextHeadingMatch = index + 1 < lines.length ? lines[index + 1].trim().match(/^(=+|-+)\s*$/) : null
+    if (setextHeadingMatch && trimmed) {
+      blocks.push({
+        type: 'heading',
+        level: setextHeadingMatch[1].startsWith('=') ? 1 : 2,
+        text: trimmed
+      })
+      index += 2
+      continue
+    }
+
     if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) {
       blocks.push({ type: 'rule' })
       index += 1
       continue
     }
 
-    if (trimmed.startsWith('```')) {
-      const language = trimmed.slice(3).trim()
+    const fenceMatch = trimmed.match(/^(```+|~~~+)\s*(.*)$/)
+    if (fenceMatch) {
+      const fence = fenceMatch[1]
+      const language = fenceMatch[2].trim()
       const codeLines: string[] = []
       index += 1
 
-      while (index < lines.length && !lines[index].trim().startsWith('```')) {
+      while (index < lines.length && !lines[index].trim().startsWith(fence)) {
         codeLines.push(lines[index])
         index += 1
       }
@@ -232,20 +255,20 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       continue
     }
 
-    if (/^([-*+])\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
-      const ordered = /^\d+\.\s+/.test(trimmed)
+    if (/^([-*+])\s+/.test(trimmed) || /^\d+[.)]\s+/.test(trimmed)) {
+      const ordered = /^\d+[.)]\s+/.test(trimmed)
       const items: Array<{ text: string; checked?: boolean }> = []
 
       while (index < lines.length) {
         const current = lines[index].trim()
-        const matchesCurrent = ordered ? /^\d+\.\s+/.test(current) : /^([-*+])\s+/.test(current)
+        const matchesCurrent = ordered ? /^\d+[.)]\s+/.test(current) : /^([-*+])\s+/.test(current)
         const continuationLine = !matchesCurrent && /^\s{2,}\S/.test(lines[index])
         if (!matchesCurrent && !continuationLine) break
 
         if (continuationLine && items.length > 0) {
           items[items.length - 1].text += `\n${current}`
         } else {
-          const listText = current.replace(ordered ? /^\d+\.\s+/ : /^([-*+])\s+/, '')
+          const listText = current.replace(ordered ? /^\d+[.)]\s+/ : /^([-*+])\s+/, '')
           const taskMatch = listText.match(/^\[( |x|X)\]\s+(.+)$/)
           if (taskMatch) {
             items.push({ text: taskMatch[2], checked: taskMatch[1].toLowerCase() === 'x' })
@@ -267,14 +290,15 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       if (
         !currentTrimmed ||
         /^(#{1,6})\s+(.+)$/.test(currentTrimmed) ||
+        (index + 1 < lines.length && /^(=+|-+)\s*$/.test(lines[index + 1].trim())) ||
         /^(?:---|\*\*\*|___)\s*$/.test(currentTrimmed) ||
-        currentTrimmed.startsWith('```') ||
+        /^(```+|~~~+)/.test(currentTrimmed) ||
         (index + 1 < lines.length &&
           isTableLine(current) &&
           isTableSeparator(lines[index + 1])) ||
         /^>\s?/.test(currentTrimmed) ||
         /^([-*+])\s+/.test(currentTrimmed) ||
-        /^\d+\.\s+/.test(currentTrimmed)
+        /^\d+[.)]\s+/.test(currentTrimmed)
       ) {
         break
       }

@@ -43,6 +43,7 @@ const supportedLanguages = [
 ] as const
 
 type SupportedLanguage = (typeof supportedLanguages)[number]
+const cacheLimit = 120
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined
 const highlightedHtmlCache = new Map<string, string>()
@@ -76,7 +77,13 @@ const aliasMap: Record<string, SupportedLanguage> = {
   golang: 'go',
   kt: 'kotlin',
   htm: 'html',
-  svg: 'xml'
+  svg: 'xml',
+  pwsh: 'powershell',
+  psm: 'powershell',
+  config: 'ini',
+  env: 'ini',
+  mkdown: 'markdown',
+  mdx: 'markdown'
 }
 
 export function normalizeHighlightLanguage(language: string): SupportedLanguage {
@@ -97,23 +104,44 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;')
 }
 
-function detectHighlightLanguage(code: string): SupportedLanguage {
+export function inferHighlightLanguage(code: string): SupportedLanguage {
   const trimmed = code.trim()
   if (!trimmed) return 'text'
   if (/^[\[{]/.test(trimmed) && /["'][^"']+["']\s*:/.test(trimmed)) return 'json'
   if (/^(diff|index\s+\w|\+\+\+|---|\@\@)/m.test(trimmed)) return 'diff'
   if (/^(FROM|RUN|CMD|COPY|ADD|WORKDIR|ENTRYPOINT|ENV)\b/m.test(trimmed)) return 'dockerfile'
+  if (/^(version|services|volumes|networks)\s*:/m.test(trimmed)) return 'yaml'
   if (/^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/im.test(trimmed)) return 'sql'
+  if (/^(#{1,6}\s+.+|>\s+.+|[-*+]\s+.+|```|~~~)/m.test(trimmed)) return 'markdown'
+  if (/^(Get-|Set-|New-|Remove-|Write-|Start-|Stop-|Test-|Import-|Export-|\$env:|param\s*\()/m.test(trimmed))
+    return 'powershell'
+  if (/^(#!\/.*\b(?:bash|sh|zsh)|\$ |npm |pnpm |yarn |git |cd |ls\b|echo\s+|cat\s+)/m.test(trimmed))
+    return 'bash'
+  if (/^\s*[A-Za-z0-9_.-]+\s*=\s*.+$/m.test(trimmed) && /^\s*\[[A-Za-z0-9_.-]+\]\s*$/m.test(trimmed))
+    return 'toml'
+  if (/^\[[^\]\n]+\]\s*$/.test(trimmed) || /^\s*[A-Za-z0-9_.-]+\s*=\s*.+$/m.test(trimmed)) return 'ini'
+  if (/^\s*<\?xml\b|^\s*<(svg|rss|feed|\w+:[\w-]+)\b/im.test(trimmed)) return 'xml'
   if (/^(<!DOCTYPE|<html\b|<div\b|<svg\b|<\w+)/im.test(trimmed)) return 'html'
   if (/^(\s{0,2}[-\w]+:\s.+|\s*-\s+\w+)/m.test(trimmed)) return 'yaml'
-  if (/^(\$ |PS [A-Z]:\\|npm |pnpm |yarn |git |cd |ls\b)/m.test(trimmed)) return 'bash'
+  if (/\binterface\s+\w+|\btype\s+\w+\s*=|:\s*(string|number|boolean|unknown|never|void)\b/.test(trimmed))
+    return 'typescript'
+  if (/\bimport\s+[\w{},*\s]+\s+from\s+['"]|export\s+(default|const|function|class)\b/.test(trimmed))
+    return 'javascript'
+  if (/^\s*(def|class)\s+\w+|^\s*from\s+\w+\s+import\s+|^\s*print\(/m.test(trimmed)) return 'python'
   return 'text'
 }
 
-function resolveHighlightLanguage(language: string, code: string): SupportedLanguage {
+export function resolveHighlightLanguage(language: string, code: string): SupportedLanguage {
   const normalized = normalizeHighlightLanguage(language)
   if (normalized !== 'text' || language.trim()) return normalized
-  return detectHighlightLanguage(code)
+  return inferHighlightLanguage(code)
+}
+
+export function getHighlightLanguageLabel(language: string, code: string): string {
+  const resolved = resolveHighlightLanguage(language, code)
+  if (language.trim()) return language.trim()
+  if (resolved === 'plaintext' || resolved === 'txt') return 'text'
+  return resolved
 }
 
 export function getPlainCodeHtml(code: string): string {
@@ -130,11 +158,19 @@ export async function highlightCodeToHtml(
   const cached = highlightedHtmlCache.get(cacheKey)
   if (cached) return cached
 
-  const highlighter = await getHighlighter()
-  const html = highlighter.codeToHtml(code, {
-    lang: resolvedLanguage as BundledLanguage,
-    theme: themeByViewMode[viewMode]
-  })
-  highlightedHtmlCache.set(cacheKey, html)
-  return html
+  try {
+    const highlighter = await getHighlighter()
+    const html = highlighter.codeToHtml(code, {
+      lang: resolvedLanguage as BundledLanguage,
+      theme: themeByViewMode[viewMode]
+    })
+    highlightedHtmlCache.set(cacheKey, html)
+    if (highlightedHtmlCache.size > cacheLimit) {
+      const oldestKey = highlightedHtmlCache.keys().next().value
+      if (oldestKey) highlightedHtmlCache.delete(oldestKey)
+    }
+    return html
+  } catch {
+    return getPlainCodeHtml(code)
+  }
 }

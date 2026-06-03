@@ -558,6 +558,14 @@ button:disabled {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.message-copy-button:focus-visible,
+.message-code-copy:focus-visible,
+.message-table-copy:focus-visible,
+.message-inline-link:focus-visible {
+  outline: 2px solid rgba(94, 200, 255, 0.55);
+  outline-offset: 2px;
+}
+
 .message-content {
   display: grid;
   gap: 12px;
@@ -638,6 +646,11 @@ button:disabled {
   color: #8bd8ff;
 }
 
+.message-inline-media::before {
+  content: '[img] ';
+  color: var(--muted);
+}
+
 .message-content code {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 7px;
@@ -674,6 +687,12 @@ button:disabled {
   min-width: 0;
   align-items: center;
   gap: 10px;
+}
+
+.message-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .message-code-dots {
@@ -727,7 +746,12 @@ button:disabled {
   overflow-x: auto;
 }
 
+.shiki-shell.wrapped {
+  overflow-x: hidden;
+}
+
 .shiki-shell .shiki {
+  counter-reset: line;
   min-width: 100%;
   margin: 0;
   padding: 16px;
@@ -737,6 +761,36 @@ button:disabled {
   font-family: 'Cascadia Mono', Consolas, 'SFMono-Regular', monospace;
   font-size: 13px;
   line-height: 1.72;
+}
+
+.shiki-shell .shiki code {
+  display: grid;
+}
+
+.shiki-shell .shiki .line {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.shiki-shell .shiki .line::before {
+  counter-increment: line;
+  content: counter(line);
+  min-width: 2.2em;
+  margin-right: 14px;
+  color: rgba(255, 255, 255, 0.28);
+  text-align: right;
+  user-select: none;
+}
+
+.shiki-shell.wrapped .shiki,
+.shiki-shell.wrapped .shiki .line {
+  white-space: pre-wrap !important;
+  word-break: break-word;
+}
+
+.shiki-shell.wrapped .shiki .line::before {
+  align-self: start;
 }
 
 .message-list,
@@ -782,8 +836,36 @@ button:disabled {
   color: var(--muted);
 }
 
+.message-table-block {
+  display: grid;
+  gap: 8px;
+}
+
+.message-table-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.message-table-copy {
+  min-height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.message-table-copy:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .message-table-wrap {
   overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
 }
 
 .message-table {
@@ -794,7 +876,7 @@ button:disabled {
 
 .message-table th,
 .message-table td {
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 8px 10px;
   vertical-align: top;
   text-align: left;

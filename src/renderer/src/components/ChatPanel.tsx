@@ -2,7 +2,12 @@ import { useEffect, useState, type DragEvent, type FormEvent, type RefObject } f
 import type { CliMode } from '../../../shared/types'
 import type { AssistantViewMode, AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
-import { getPlainCodeHtml, highlightCodeToHtml, normalizeHighlightLanguage } from '../utils/highlight'
+import {
+  getHighlightLanguageLabel,
+  getPlainCodeHtml,
+  highlightCodeToHtml,
+  normalizeHighlightLanguage
+} from '../utils/highlight'
 import { parseInlineTokens, parseMarkdownBlocks, unescapeMarkdownText } from '../utils/markdown'
 
 function renderInlineContent(text: string): React.JSX.Element[] {
@@ -27,6 +32,15 @@ function renderInlineContent(text: string): React.JSX.Element[] {
       >
         {token.value}
       </button>
+    ) : token.type === 'image' ? (
+      <button
+        key={`${token.type}_${index}`}
+        type="button"
+        className="message-inline-link message-inline-media"
+        onClick={() => void window.api.openMedia(token.target)}
+      >
+        {token.alt || token.target}
+      </button>
     ) : token.type === 'emphasis' ? (
       <em key={`${token.type}_${index}`}>{token.value}</em>
     ) : token.type === 'strike' ? (
@@ -49,6 +63,21 @@ function renderInlineLines(text: string): React.JSX.Element[] {
     })
 }
 
+function tableToMarkdown(headers: string[], alignments: Array<'left' | 'center' | 'right' | undefined>, rows: string[][]): string {
+  const separator = alignments.map((alignment) => {
+    if (alignment === 'left') return ':---'
+    if (alignment === 'right') return '---:'
+    if (alignment === 'center') return ':---:'
+    return '---'
+  })
+
+  return [
+    `| ${headers.join(' | ')} |`,
+    `| ${separator.join(' | ')} |`,
+    ...rows.map((row) => `| ${row.join(' | ')} |`)
+  ].join('\n')
+}
+
 function CodeBlock({
   code,
   language,
@@ -62,6 +91,8 @@ function CodeBlock({
 }): React.JSX.Element {
   const [didCopy, setDidCopy] = useState(false)
   const [html, setHtml] = useState<string>(() => getPlainCodeHtml(code))
+  const [wrapLines, setWrapLines] = useState(false)
+  const languageLabel = getHighlightLanguageLabel(language, code)
 
   useEffect(() => {
     let cancelled = false
@@ -97,14 +128,80 @@ function CodeBlock({
             <span />
             <span />
           </span>
-          <span className="message-code-language">{language || 'text'}</span>
+          <span className="message-code-language">{languageLabel}</span>
         </div>
-        <button className="message-code-copy" type="button" onClick={() => void copyCode()}>
-          {didCopy ? t.copied : t.copyCode}
+        <div className="message-code-actions">
+          <button className="message-code-copy" type="button" onClick={() => setWrapLines((value) => !value)}>
+            {wrapLines ? t.unwrapCode : t.wrapCode}
+          </button>
+          <button className="message-code-copy" type="button" onClick={() => void copyCode()}>
+            {didCopy ? t.copied : t.copyCode}
+          </button>
+        </div>
+      </div>
+      <div
+        className={wrapLines ? 'shiki-shell wrapped' : 'shiki-shell'}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </section>
+  )
+}
+
+function TableBlock({
+  headers,
+  alignments,
+  rows,
+  t
+}: {
+  headers: string[]
+  alignments: Array<'left' | 'center' | 'right' | undefined>
+  rows: string[][]
+  t: Dictionary
+}): React.JSX.Element {
+  const [didCopy, setDidCopy] = useState(false)
+
+  const copyTable = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(tableToMarkdown(headers, alignments, rows))
+      setDidCopy(true)
+      window.setTimeout(() => setDidCopy(false), 1600)
+    } catch {
+      setDidCopy(false)
+    }
+  }
+
+  return (
+    <div className="message-table-block">
+      <div className="message-table-actions">
+        <button className="message-table-copy" type="button" onClick={() => void copyTable()}>
+          {didCopy ? t.copied : t.copyTable}
         </button>
       </div>
-      <div className="shiki-shell" dangerouslySetInnerHTML={{ __html: html }} />
-    </section>
+      <div className="message-table-wrap">
+        <table className="message-table">
+          <thead>
+            <tr>
+              {headers.map((header, headerIndex) => (
+                <th key={`header_${headerIndex}`} style={{ textAlign: alignments[headerIndex] ?? 'left' }}>
+                  {renderInlineContent(header)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr key={`row_${rowIndex}`}>
+                {row.map((cell, cellIndex) => (
+                  <td key={`cell_${rowIndex}_${cellIndex}`} style={{ textAlign: alignments[cellIndex] ?? 'left' }}>
+                    {renderInlineContent(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
 
@@ -171,36 +268,13 @@ function MessageContent({
 
         if (block.type === 'table') {
           return (
-            <div key={`table_${index}`} className="message-table-wrap">
-              <table className="message-table">
-                <thead>
-                  <tr>
-                    {block.headers.map((header, headerIndex) => (
-                      <th
-                        key={`header_${headerIndex}`}
-                        style={{ textAlign: block.alignments[headerIndex] ?? 'left' }}
-                      >
-                        {renderInlineContent(header)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {block.rows.map((row, rowIndex) => (
-                    <tr key={`row_${rowIndex}`}>
-                      {row.map((cell, cellIndex) => (
-                        <td
-                          key={`cell_${rowIndex}_${cellIndex}`}
-                          style={{ textAlign: block.alignments[cellIndex] ?? 'left' }}
-                        >
-                          {renderInlineContent(cell)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <TableBlock
+              key={`table_${index}`}
+              headers={block.headers}
+              alignments={block.alignments}
+              rows={block.rows}
+              t={t}
+            />
           )
         }
 
