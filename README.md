@@ -4,194 +4,15 @@
   </span>
 </p>
 
-Client desktop non ufficiale per usare `grok` e `agent` con una UI Electron ispirata a Grok sul browser.
-
-English version: see [English](#english).
-
-## GrokUI
-
-GrokUI non reimplementa Grok da zero: usa la CLI locale di Grok come backend e trasforma in interfaccia desktop quello che normalmente useresti da terminale.
-
-L'app avvia i comandi `grok` e `agent` dietro le quinte, senza finestre CMD visibili, e mostra in chat lo streaming prodotto dalla CLI.
-
-## Funzionalita'
-
-- UI desktop scura ispirata a Grok browser
-- lingua UI sincronizzata con la lingua del sistema (`it`/`en`, fallback a inglese)
-- sidebar collassabile
-- lista `Conversazioni` contestuale alla modalita attiva (`grok` o `agent`)
-- recupero sessioni esistenti tramite `grok sessions list` e `agent sessions list`
-- apertura transcript tramite `grok export` e `agent export`
-- output streaming renderizzato come chat
-- renderer messaggi con paragrafi markdown, inline code, grassetto, corsivo, barrato, heading, separatori, liste, task list, citazioni, tabelle e code block con triple backtick
-- syntax highlighting reale nei code block
-- rilevamento automatico della lingua nei code block non etichettati, con fallback sicuro a plain text
-- controlli rapidi sui code block con copia, wrap/no-wrap e numeri di riga
-- indicatore di risposta in corso nella conversazione
-- stop della generazione in corso
-- working directory configurabile
-- modello configurabile, se supportato dalla CLI
-- switch tra stile visivo `GrokUI` e stile `CLI` per i messaggi assistant
-- link cliccabili per path locali, URL e link markdown nei messaggi
-- copia rapida del messaggio, dei blocchi codice e delle tabelle markdown
-- rinomina locale delle sessioni
-- nascondi sessione solo nella UI
-- assegnazione locale di sessioni alla sezione Agent
-- apertura di immagini/video generati tramite pulsanti localizzati in base alla lingua del sistema
-- allegati file tramite bottone `+`
-- drag and drop di file nella chat
-- chip rimovibili per i file allegati prima dell'invio
-- invio dei path locali a Grok CLI come testo, senza copiare o caricare i file
-- logo SVG nella UI e icone app generate da `resources/icon.svg`
-
-## Allegati
-
-Grok CLI lavora bene con i path locali. Per questo GrokUI non fa upload dei file: prende il percorso reale del file selezionato o trascinato e lo aggiunge al prompt.
-
-Esempio:
-
-```text
-Puoi usare questa immagine come riferimento?
-
-File allegati:
-K:\AI\ComfyUI\output\Grok_Porn_00031.png
-```
-
-Puoi anche inviare solo un file senza testo:
-
-```text
-File allegati:
-K:\AI\ComfyUI\output\Grok_Porn_00031.png
-```
-
-## Modalita'
-
-- `grok`: chat diretta con Grok tramite la CLI locale
-- `agent`: workflow piu guidato per task multi-step tramite Agent CLI
-
-La distinzione e di esperienza d'uso e di comando CLI sottostante. GrokUI non converte automaticamente una sessione `grok` in una sessione `agent`: l'assegnazione alla sezione Agent nella sidebar resta una preferenza locale della UI.
-
-## Requisiti
-
-- Node.js 20 o superiore
-- Grok CLI installata localmente
-- comandi `grok` e `agent` disponibili da terminale
-- login/configurazione della CLI gia completati, se richiesti
-
-Puoi verificare:
-
-```powershell
-grok --help
-agent --help
-grok sessions list
-```
-
-## Installazione
-
-```powershell
-npm install
-```
-
-## Avvio In Sviluppo
-
-```powershell
-npm run dev
-```
-
-Di default l'app usa la home directory reale del sistema come working directory iniziale, cosi puo vedere le sessioni avviate dalla home. Puoi cambiarla dalla sidebar.
-
-## Build
-
-Build base Electron/Vite:
-
-```powershell
-npm run build
-```
-
-Build pacchetto Windows:
-
-```powershell
-npm run build:win
-```
-
-Build pacchetto Linux:
-
-```powershell
-npm run build:linux
-```
-
-Build pacchetto macOS:
-
-```powershell
-npm run build:mac
-```
-
-Build non impacchettata:
-
-```powershell
-npm run build:unpack
-```
-
-Tutti gli script `build:*` eseguono prima `npm run build`, quindi icone, typecheck e build Electron restano uniformi su Windows, Linux e macOS.
-
-## Script Utili
-
-- `npm run dev`: avvia l'app in sviluppo
-- `npm run start`: anteprima della build Electron
-- `npm run icons`: converte `resources/icon.svg` in `build/icon.png`, `build/icon.ico` e `build/icon.icns`
-- `npm run build`: genera icone, esegue typecheck e build applicativa
-- `npm run build:win`: build installer/app Windows
-- `npm run build:linux`: build pacchetti Linux
-- `npm run build:mac`: build pacchetto macOS
-- `npm run test`: esegue la suite Vitest sul parser markdown e sull'highlighter
-- `npm run test:watch`: esegue Vitest in watch mode
-- `npm run lint`: esegue ESLint
-- `npm run format`: formatta il progetto con Prettier
-
-## Asset
-
-- Logo UI: `resources/logo.svg`
-- Logo bianco README/UI: `resources/logo-white.svg`
-- Icona sorgente: `resources/icon.svg`
-- Icona bianca generata: `resources/icon-white.svg`
-- Icone generate:
-  - Windows: `build/icon.ico`
-  - macOS: `build/icon.icns`
-  - Linux: `build/icon.png`
-
-## Note
-
-- GrokUI dipende dalle funzionalita disponibili nella CLI installata localmente.
-- Le sessioni possono dipendere dalla working directory usata quando hai avviato `grok` o `agent`.
-- La separazione tra `grok` e `agent` nella sidebar e gestita dalla UI, mentre l'esecuzione viene delegata ai rispettivi comandi CLI.
-- Rinomina e nascondi sessione sono preferenze locali dell'app, non modifiche permanenti nella CLI.
-- I file allegati non vengono copiati: Grok riceve il path locale come testo.
-
-## Limitazioni
-
-- GrokUI dipende completamente dalle funzionalita e dal comportamento della CLI installata localmente.
-- I file allegati non vengono caricati dall'app: viene inviato solo il path locale come testo.
-- Le sessioni visibili possono cambiare in base alla working directory usata con `grok` o `agent`.
-- Il comportamento di alcune funzioni puo cambiare se cambia la CLI sottostante.
-- Il renderer messaggi supporta un sottoinsieme markdown piu ricco e code block evidenziati, ma non include ancora tutte le estensioni possibili di un parser markdown completo.
-
-## English
-
-<p align="center">
-  <span style="display:inline-block;padding:12px 18px;border-radius:16px;background:#0c0d0f;">
-    <img src="./resources/logo-white.svg" alt="GrokUI logo" width="100%" />
-  </span>
-</p>
-
 Unofficial desktop client for `grok` and `agent`, built with Electron and inspired by the browser version of Grok.
 
-### GrokUI
+## GrokUI
 
 GrokUI does not reimplement Grok from scratch. It uses the locally installed Grok CLI as its backend and turns the terminal workflow into a desktop chat interface.
 
 The app starts `grok` and `agent` commands behind the scenes, without visible CMD windows, and renders CLI streaming output directly in the chat.
 
-### Features
+## Features
 
 - dark desktop UI inspired by Grok in the browser
 - UI language synced with the system language (`it`/`en`, English fallback)
@@ -200,7 +21,7 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - existing session discovery via `grok sessions list` and `agent sessions list`
 - transcript loading via `grok export` and `agent export`
 - streaming output rendered as chat messages
-- message renderer with markdown paragraphs, inline code, bold, emphasis, strikethrough, headings, rules, lists, task lists, quotes, tables, and triple-backtick code blocks
+- message renderer with markdown paragraphs, inline code, bold, emphasis, strikethrough, headings, rules, lists, task lists, quotes, tables, images, and triple-backtick code blocks
 - full syntax highlighting in code blocks
 - automatic language detection for unlabeled code blocks, with safe plain-text fallback
 - quick code-block controls with copy, wrap/no-wrap, and line numbers
@@ -209,7 +30,7 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - configurable working directory
 - configurable model, when supported by the CLI
 - switch between `GrokUI` and `CLI` visual styles for assistant messages
-- clickable local paths, URLs, and markdown links inside messages
+- clickable local paths, URLs, markdown links, and markdown images inside messages
 - quick copy for messages, code blocks, and markdown tables
 - local session rename
 - hide sessions locally in the UI
@@ -221,34 +42,34 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - send local file paths to Grok CLI as plain text, without copying or uploading files
 - SVG logo in the UI and generated app icons from `resources/icon.svg`
 
-### File Attachments
+## File Attachments
 
 Grok CLI works well with local file paths. For this reason, GrokUI does not upload files: it reads the real path of the selected or dropped file and appends it to the prompt.
 
 Example:
 
 ```text
-Can you use this image as a reference?
+Can you use this image as reference?
 
 File attachments:
 K:\AI\ComfyUI\output\Grok_Porn_00031.png
 ```
 
-You can also send only a file without extra text:
+You can also send only a file with no extra text:
 
 ```text
 File attachments:
 K:\AI\ComfyUI\output\Grok_Porn_00031.png
 ```
 
-### Modes
+## Modes
 
 - `grok`: direct chat with Grok through the local CLI
-- `agent`: a more guided workflow for multi-step tasks through Agent CLI
+- `agent`: more guided multi-step task workflow through Agent CLI
 
-The distinction is based on UX and the underlying CLI command. GrokUI does not automatically convert a `grok` session into an `agent` session: assigning a session to the Agent section in the sidebar remains a local UI preference.
+The distinction is about UX and the underlying CLI command. GrokUI does not automatically convert a `grok` session into an `agent` session: assigning a session to the Agent section remains a local UI preference.
 
-### Requirements
+## Requirements
 
 - Node.js 20 or later
 - Grok CLI installed locally
@@ -263,21 +84,21 @@ agent --help
 grok sessions list
 ```
 
-### Installation
+## Install
 
 ```powershell
 npm install
 ```
 
-### Development
+## Development
 
 ```powershell
 npm run dev
 ```
 
-By default, the app uses the real system home directory as the initial working directory so it can discover sessions started from the home folder. You can change it from the sidebar.
+By default the app uses the real system home directory as the initial working directory, so it can see sessions started from your home folder. You can change it from the sidebar.
 
-### Build
+## Build
 
 Base Electron/Vite build:
 
@@ -311,9 +132,9 @@ npm run build:unpack
 
 All `build:*` scripts run `npm run build` first, so icon generation, typecheck, and the Electron build stay consistent across Windows, Linux, and macOS.
 
-### Useful Scripts
+## Useful Scripts
 
-- `npm run dev`: start the app in development mode
+- `npm run dev`: start the app in development
 - `npm run start`: preview the Electron build
 - `npm run icons`: convert `resources/icon.svg` into `build/icon.png`, `build/icon.ico`, and `build/icon.icns`
 - `npm run build`: generate icons, run typechecks, and build the app
@@ -325,29 +146,48 @@ All `build:*` scripts run `npm run build` first, so icon generation, typecheck, 
 - `npm run lint`: run ESLint
 - `npm run format`: format the project with Prettier
 
-### Assets
+## Troubleshooting
+
+- `grok` or `agent` is not found
+  Run `grok --help` and `agent --help` in the same terminal environment used to launch the app. If they fail there, fix your `PATH` or CLI installation first.
+- No conversations appear
+  The visible session list depends on the current working directory. Change the working directory from the sidebar to the folder or home directory where you normally started `grok` or `agent`.
+- Sessions look different between CLI and GrokUI
+  GrokUI reads sessions from the CLI. If the CLI changes behavior, output format, or filtering rules, the UI will reflect that.
+- Attachments do not upload
+  This is expected. GrokUI sends local file paths as text to the CLI. It does not upload files itself.
+- A code block shows `text` or plain formatting
+  If a block has no explicit language and the detector cannot infer it confidently, GrokUI falls back to plain text rendering.
+- Generated media does not open
+  Check that the file path in the message still exists on disk and is accessible by the OS.
+- Build fails on macOS or Linux
+  `electron-builder` may require extra platform tooling or signing configuration depending on your target. Verify your local packaging prerequisites before assuming the app build is broken.
+- The UI is in English instead of Italian
+  The UI follows the system language. Only `it` is mapped to Italian; all other locales currently fall back to English.
+
+## Assets
 
 - UI logo: `resources/logo.svg`
-- White README/UI logo: `resources/logo-white.svg`
-- Source icon: `resources/icon.svg`
-- Generated white icon: `resources/icon-white.svg`
-- Generated icons:
+- white logo for README/UI: `resources/logo-white.svg`
+- source icon: `resources/icon.svg`
+- generated white icon: `resources/icon-white.svg`
+- generated icons:
   - Windows: `build/icon.ico`
   - macOS: `build/icon.icns`
   - Linux: `build/icon.png`
 
-### Notes
+## Notes
 
-- GrokUI depends on the features exposed by the locally installed CLI.
-- Sessions may depend on the working directory used when you started `grok` or `agent`.
-- The sidebar separates `grok` and `agent` in the UI, while execution is delegated to their respective CLI commands.
-- Rename and hide session actions are local app preferences, not permanent CLI changes.
-- Attached files are not copied: Grok receives the local path as plain text.
+- GrokUI depends on the features available in the locally installed CLI.
+- Visible sessions may depend on the working directory used when you started `grok` or `agent`.
+- The separation between `grok` and `agent` in the sidebar is a UI concept; execution is delegated to the respective CLI commands.
+- Rename and hide session are local app preferences, not permanent changes in the CLI.
+- Attached files are not copied: Grok receives the local path as text.
 
-### Limitations
+## Limitations
 
-- GrokUI depends entirely on the features and behavior exposed by the locally installed CLI.
-- Attached files are not uploaded by the app: only the local path is sent as plain text.
+- GrokUI depends completely on the capabilities and behavior of the locally installed CLI.
+- Attached files are not uploaded by the app; only the local path is sent as text.
 - Visible sessions may change depending on the working directory used with `grok` or `agent`.
 - Some app behavior may change when the underlying CLI changes.
 - The message renderer supports a richer markdown subset and highlighted code blocks, but it is still not a full markdown implementation with every possible extension.
