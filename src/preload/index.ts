@@ -15,6 +15,7 @@ const api = {
   readPreferences: () => ipcRenderer.invoke('app:read-preferences'),
   writePreferences: (value: unknown) => ipcRenderer.invoke('app:write-preferences', value),
   getSystemLocale: () => ipcRenderer.invoke('app:get-system-locale'),
+  getHomeDir: () => ipcRenderer.invoke('app:get-home-dir'),
   selectFiles: () => ipcRenderer.invoke('app:select-files'),
   getFilePath: (file: File) => webUtils.getPathForFile(file),
   onCliStream: (callback: (event: CliStreamEvent) => void) => {

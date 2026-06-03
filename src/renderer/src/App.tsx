@@ -1,310 +1,177 @@
-import {
-  type CSSProperties,
-  type DragEvent,
-  FormEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react'
+import { type CSSProperties, type DragEvent, type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { CliMode, CliSession, CliStreamEvent } from '../../shared/types'
 import grokLogo from '../../../resources/logo.svg'
+import { ChatPanel } from './components/ChatPanel'
+import { RenameDialog } from './components/RenameDialog'
+import { SessionContextMenu } from './components/SessionContextMenu'
+import { Sidebar } from './components/Sidebar'
+import { initialConversations, type AttachedFile, type ContextMenuState, type RenameState } from './appTypes'
+import { useAppPreferences } from './hooks/useAppPreferences'
 import { getDictionary } from './i18n'
+import {
+  appendMediaToLastAssistant,
+  createAttachedFile,
+  createDroppedFile,
+  createId,
+  extractMediaLinks,
+  sessionTitle,
+  shortId,
+  transcriptToMessages,
+  mediaTypeFromPath
+} from './utils/chat'
 
-type ChatMessage = {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  media?: string[]
-}
-
-type ConversationState = {
-  messages: ChatMessage[]
-  activeSessionId?: string
-  activeRunId?: string
-}
-
-type SessionPrefs = {
-  hidden: Record<CliMode, string[]>
-  aliases: Record<string, string>
-  agentSessionIds: string[]
-}
-
-type ContextMenuState = {
-  mode: CliMode
-  session: CliSession
-  x: number
-  y: number
-}
-
-type RenameState = {
-  session: CliSession
-  value: string
-}
-
-type AttachedFile = {
-  path: string
-  name: string
-  mediaType: 'image' | 'video' | 'file'
-}
-
-const initialConversations: Record<CliMode, ConversationState> = {
-  grok: { messages: [] },
-  agent: { messages: [] }
-}
-
-const defaultCwd = 'C:\\Users\\lollo'
-const prefsKey = 'grokui.sessionPrefs'
-
-function createId(): string {
-  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-}
-
-function shortId(id: string): string {
-  return id.slice(0, 8)
-}
-
-function getDefaultPrefs(): SessionPrefs {
-  return {
-    hidden: { grok: [], agent: [] },
-    aliases: {},
-    agentSessionIds: []
-  }
-}
-
-function loadPrefs(): SessionPrefs {
-  try {
-    return { ...getDefaultPrefs(), ...JSON.parse(localStorage.getItem(prefsKey) ?? '{}') }
-  } catch {
-    return getDefaultPrefs()
-  }
-}
-
-function normalizePrefs(value: unknown): SessionPrefs {
-  const defaults = getDefaultPrefs()
-  if (!value || typeof value !== 'object') return defaults
-
-  const record = value as Partial<SessionPrefs>
-  return {
-    hidden: {
-      grok: Array.isArray(record.hidden?.grok) ? record.hidden.grok : defaults.hidden.grok,
-      agent: Array.isArray(record.hidden?.agent) ? record.hidden.agent : defaults.hidden.agent
-    },
-    aliases:
-      record.aliases && typeof record.aliases === 'object' ? record.aliases : defaults.aliases,
-    agentSessionIds: Array.isArray(record.agentSessionIds)
-      ? record.agentSessionIds
-      : defaults.agentSessionIds
-  }
-}
-
-function sessionTitle(
-  session: CliSession,
-  aliases: Record<string, string>,
-  fallbackLabel: string
-): string {
-  return aliases[session.id] || session.summary || fallbackLabel
-}
-
-function filenameFromPath(path: string): string {
-  return path.split(/[\\/]/).pop()?.toLowerCase() ?? path.toLowerCase()
-}
-
-function displayNameFromPath(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path
-}
-
-function extensionFromPath(path: string): string {
-  return path.split('.').pop()?.toLowerCase() ?? ''
-}
-
-function mediaTypeFromPath(path: string): AttachedFile['mediaType'] {
-  const extension = extensionFromPath(path)
-  if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension)) return 'image'
-  if (['mp4', 'webm'].includes(extension)) return 'video'
-  return 'file'
-}
-
-function createAttachedFile(path: string): AttachedFile {
-  const mediaType = mediaTypeFromPath(path)
-  return {
-    path,
-    name: displayNameFromPath(path),
-    mediaType
-  }
-}
-
-function createDroppedFile(file: File): AttachedFile | undefined {
-  const path = window.api.getFilePath(file)
-  if (!path) return undefined
-
-  const mediaType = mediaTypeFromPath(path)
-  return {
-    path,
-    name: file.name || displayNameFromPath(path),
-    mediaType
-  }
-}
-
-function messageRoleFromHeading(heading: string): ChatMessage['role'] {
-  if (heading.toLowerCase() === 'user') return 'user'
-  if (heading.toLowerCase() === 'assistant') return 'assistant'
-  return 'system'
-}
-
-function attachMediaToMessages(messages: ChatMessage[], media: string[]): ChatMessage[] {
-  if (media.length === 0) return messages
-
-  const assigned = new Set<string>()
-  const nextMessages = messages.map((message) => {
-    const content = message.content.toLowerCase()
-    const matches = media.filter((item) => content.includes(filenameFromPath(item)))
-    if (matches.length === 0) return message
-
-    matches.forEach((item) => assigned.add(item))
-    return { ...message, media: Array.from(new Set([...(message.media ?? []), ...matches])) }
-  })
-
-  const remaining = media.filter((item) => !assigned.has(item))
-  if (remaining.length === 0) return nextMessages
-
-  const lastAssistantIndex = nextMessages.findLastIndex((message) => message.role === 'assistant')
-  if (lastAssistantIndex < 0) return nextMessages
-
-  const target = nextMessages[lastAssistantIndex]
-  nextMessages[lastAssistantIndex] = {
-    ...target,
-    media: Array.from(new Set([...(target.media ?? []), ...remaining]))
-  }
-
-  return nextMessages
-}
-
-function transcriptToMessages(transcript: string, media: string[] = []): ChatMessage[] {
-  const trimmed = transcript.trim()
-  if (!trimmed) return []
-
-  const headingPattern = /^##\s+(User|Assistant|Tools|System)\s*$/gim
-  const headings = Array.from(trimmed.matchAll(headingPattern))
-
-  if (headings.length === 0) {
-    return attachMediaToMessages(
-      [
-        {
-          id: createId(),
-          role: 'assistant',
-          content: trimmed
-        }
-      ],
-      media
-    )
-  }
-
-  const messages = headings
-    .map((heading, index) => {
-      const start = (heading.index ?? 0) + heading[0].length
-      const end = headings[index + 1]?.index ?? trimmed.length
-      const content = trimmed.slice(start, end).trim()
-      if (!content) return undefined
-
-      return {
-        id: createId(),
-        role: messageRoleFromHeading(heading[1]),
-        content
-      }
-    })
-    .filter((message): message is ChatMessage => Boolean(message))
-
-  return attachMediaToMessages(messages, media)
-}
-
-function normalizeMediaLink(link: string): string {
-  return link.replace(/[),.;]+$/g, '')
-}
-
-function extractMediaLinks(text: string): string[] {
-  const matches = text.match(
-    /(?:file:\/\/\/[^\s)]+|[A-Za-z]:\\[^\n"']+\.(?:png|jpe?g|webp|gif|mp4|webm)|https?:\/\/[^\s)]+\.(?:png|jpe?g|webp|gif|mp4|webm))/gi
-  )
-
-  return Array.from(new Set((matches ?? []).map(normalizeMediaLink)))
-}
-
-function appendMediaToLastAssistant(messages: ChatMessage[], media: string[]): ChatMessage[] {
-  if (media.length === 0) return messages
-
-  const lastAssistantIndex = messages.findLastIndex((message) => message.role === 'assistant')
-  if (lastAssistantIndex < 0) return messages
-
-  const nextMessages = [...messages]
-  const target = nextMessages[lastAssistantIndex]
-  nextMessages[lastAssistantIndex] = {
-    ...target,
-    media: Array.from(new Set([...(target.media ?? []), ...media]))
-  }
-
-  return nextMessages
+function mergeSessions(...groups: CliSession[][]): CliSession[] {
+  return Array.from(new Map(groups.flat().map((session) => [session.id, session])).values())
 }
 
 function App(): React.JSX.Element {
-  const [locale, setLocale] = useState('en')
+  const [locale, setLocale] = useState(() => navigator.language || 'en')
   const [mode, setMode] = useState<CliMode>('grok')
-  const [cwd, setCwd] = useState(defaultCwd)
+  const [cwd, setCwd] = useState('')
   const [model, setModel] = useState('')
   const [prompt, setPrompt] = useState('')
   const [sessions, setSessions] = useState<Record<CliMode, CliSession[]>>({ grok: [], agent: [] })
-  const [conversations, setConversations] =
-    useState<Record<CliMode, ConversationState>>(initialConversations)
-  const [prefs, setPrefs] = useState<SessionPrefs>(() => getDefaultPrefs())
+  const [conversations, setConversations] = useState(initialConversations)
+  const [prefs, setPrefs] = useAppPreferences()
   const [isSidebarHidden, setIsSidebarHidden] = useState(false)
   const [contextMenu, setContextMenu] = useState<ContextMenuState>()
   const [renameTarget, setRenameTarget] = useState<RenameState>()
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
-  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
+  const [loadingState, setLoadingState] = useState({ all: false, grok: false, agent: false })
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string>()
 
   const scrollerRef = useRef<HTMLDivElement>(null)
   const sessionMediaRef = useRef<Record<string, string[]>>({})
-  const prefsLoadedRef = useRef(false)
+  const localeRef = useRef(locale)
+  const initialRefreshDoneRef = useRef(false)
   const logoStyle = { '--logo': `url(${grokLogo})` } as CSSProperties
   const activeConversation = conversations[mode]
   const t = useMemo(() => getDictionary(locale), [locale])
 
+  useEffect(() => {
+    localeRef.current = locale
+  }, [locale])
+
   const visibleSessions = useMemo(
     () => ({
       grok: sessions.grok.filter((session) => !prefs.hidden.grok.includes(session.id)),
-      agent: sessions.agent.filter(
-        (session) =>
-          prefs.agentSessionIds.includes(session.id) && !prefs.hidden.agent.includes(session.id)
-      )
+      agent: sessions.agent.filter((session) => !prefs.hidden.agent.includes(session.id))
     }),
-    [prefs.agentSessionIds, prefs.hidden.agent, prefs.hidden.grok, sessions.agent, sessions.grok]
+    [prefs.hidden.agent, prefs.hidden.grok, sessions.agent, sessions.grok]
   )
 
   const selectedSession = useMemo(
-    () =>
-      visibleSessions[mode].find((session) => session.id === activeConversation.activeSessionId),
+    () => visibleSessions[mode].find((session) => session.id === activeConversation.activeSessionId),
     [activeConversation.activeSessionId, mode, visibleSessions]
   )
 
-  useEffect(() => {
-    void window.api.getSystemLocale().then((value) => setLocale(value))
-  }, [])
+  const renderedMessages = useMemo(
+    () =>
+      activeConversation.messages.map((message) => ({
+        ...message,
+        mediaLinks: extractMediaLinks(message.content)
+      })),
+    [activeConversation.messages]
+  )
+
+  const isLoadingSessions = loadingState.all || loadingState.grok || loadingState.agent
+
+  const setLoading = (key: 'all' | CliMode, value: boolean): void => {
+    setLoadingState((current) => ({ ...current, [key]: value }))
+  }
 
   useEffect(() => {
-    void window.api.readPreferences().then((storedPrefs) => {
-      setPrefs(storedPrefs ? normalizePrefs(storedPrefs) : loadPrefs())
-      prefsLoadedRef.current = true
-    })
+    void Promise.all([window.api.getSystemLocale(), window.api.getHomeDir()]).then(
+      ([systemLocale, homeDir]) => {
+        setLocale(systemLocale)
+        setCwd(homeDir)
+      }
+    )
   }, [])
 
+  const refreshSessions = async (targetMode: CliMode = mode): Promise<void> => {
+    setLoading(targetMode, true)
+    setError(undefined)
+
+    try {
+      const nextSessions = await window.api.listSessions(targetMode, cwd, 50)
+
+      if (targetMode === 'grok') {
+        setSessions((current) => ({
+          grok: nextSessions,
+          agent: mergeSessions(
+            current.agent.filter((session) => !prefs.agentSessionIds.includes(session.id)),
+            current.agent.filter((session) => prefs.agentSessionIds.includes(session.id)),
+            nextSessions.filter((session) => prefs.agentSessionIds.includes(session.id))
+          )
+        }))
+      } else {
+        setSessions((current) => ({
+          ...current,
+          agent: mergeSessions(
+            nextSessions,
+            current.grok.filter((session) => prefs.agentSessionIds.includes(session.id))
+          )
+        }))
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setLoading(targetMode, false)
+    }
+  }
+
+  const refreshAllSessions = async (): Promise<void> => {
+    setLoading('all', true)
+    setError(undefined)
+
+    try {
+      const [grokSessions, agentSessions] = await Promise.all([
+        window.api.listSessions('grok', cwd, 50),
+        window.api.listSessions('agent', cwd, 50)
+      ])
+
+      setSessions({
+        grok: grokSessions,
+        agent: mergeSessions(
+          agentSessions,
+          grokSessions.filter((session) => prefs.agentSessionIds.includes(session.id))
+        )
+      })
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setLoading('all', false)
+    }
+  }
+
   useEffect(() => {
-    if (!prefsLoadedRef.current) return
-    void window.api.writePreferences(prefs)
-  }, [prefs])
+    if (!cwd || initialRefreshDoneRef.current) return
+    initialRefreshDoneRef.current = true
+    void refreshAllSessions()
+  }, [cwd])
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('.session-menu')) return
+      setContextMenu(undefined)
+    }
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setContextMenu(undefined)
+    }
+
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
 
   const updateScrollBottomVisibility = (): void => {
     const scroller = scrollerRef.current
@@ -318,10 +185,7 @@ function App(): React.JSX.Element {
     const scroller = scrollerRef.current
     if (!scroller) return
 
-    scroller.scrollTo({
-      top: scroller.scrollHeight,
-      behavior
-    })
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior })
     setShowScrollBottom(false)
   }
 
@@ -392,7 +256,14 @@ function App(): React.JSX.Element {
             ...current,
             [event.mode]: {
               ...target,
-              messages: [...target.messages, { id: createId(), role: 'system', content: event.text ?? t.cliError }]
+              messages: [
+                ...target.messages,
+                {
+                  id: createId(),
+                  role: 'system',
+                  content: event.text ?? getDictionary(localeRef.current).cliError
+                }
+              ]
             }
           }
         }
@@ -411,43 +282,6 @@ function App(): React.JSX.Element {
         return current
       })
     })
-  }, [t.cliError])
-
-  const refreshSessions = async (targetMode: CliMode = mode): Promise<void> => {
-    setIsLoadingSessions(true)
-    setError(undefined)
-
-    try {
-      const nextSessions = await window.api.listSessions(targetMode, cwd, 50)
-      setSessions((current) => ({ ...current, [targetMode]: nextSessions }))
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-    } finally {
-      setIsLoadingSessions(false)
-    }
-  }
-
-  const refreshAllSessions = async (): Promise<void> => {
-    setIsLoadingSessions(true)
-    setError(undefined)
-
-    try {
-      const grokSessions = await window.api.listSessions('grok', cwd, 50)
-      setSessions((current) => ({ ...current, grok: grokSessions, agent: current.agent }))
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-    } finally {
-      setIsLoadingSessions(false)
-    }
-  }
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void refreshAllSessions()
-    }, 0)
-    return () => window.clearTimeout(timeoutId)
-    // Initial import only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const openSession = async (targetMode: CliMode, session: CliSession): Promise<void> => {
@@ -526,7 +360,7 @@ function App(): React.JSX.Element {
   const buildPrompt = (text: string): string => {
     if (attachedFiles.length === 0) return text
 
-    const fileBlock = `File attachments:\n${attachedFiles.map((file) => file.path).join('\n')}`
+    const fileBlock = `${t.fileAttachmentsLabel}:\n${attachedFiles.map((file) => file.path).join('\n')}`
     return text ? `${text}\n\n${fileBlock}` : fileBlock
   }
 
@@ -536,6 +370,7 @@ function App(): React.JSX.Element {
     const text = prompt.trim()
     if ((!text && attachedFiles.length === 0) || isSending) return
 
+    const currentFiles = attachedFiles
     const outgoingPrompt = buildPrompt(text)
     setPrompt('')
     setAttachedFiles([])
@@ -546,10 +381,7 @@ function App(): React.JSX.Element {
       ...current,
       [mode]: {
         ...current[mode],
-        messages: [
-          ...current[mode].messages,
-          { id: createId(), role: 'user', content: outgoingPrompt }
-        ]
+        messages: [...current[mode].messages, { id: createId(), role: 'user', content: outgoingPrompt }]
       }
     }))
 
@@ -569,7 +401,7 @@ function App(): React.JSX.Element {
     } catch (reason) {
       setIsSending(false)
       setPrompt(text)
-      addAttachedPaths(attachedFiles.map((file) => file.path))
+      addAttachedPaths(currentFiles.map((file) => file.path))
       setError(reason instanceof Error ? reason.message : String(reason))
     }
   }
@@ -606,9 +438,7 @@ function App(): React.JSX.Element {
     setContextMenu(undefined)
     setSessions((current) => ({
       ...current,
-      agent: Array.from(
-        new Map([...current.agent, session].map((item) => [item.id, item])).values()
-      )
+      agent: mergeSessions(current.agent, [session])
     }))
     setPrefs((current) => ({
       ...current,
@@ -624,7 +454,7 @@ function App(): React.JSX.Element {
           ? 'history-item active'
           : 'history-item'
       }
-      onClick={() => openSession(targetMode, session)}
+      onClick={() => void openSession(targetMode, session)}
       onContextMenu={(event) => {
         event.preventDefault()
         setContextMenu({ mode: targetMode, session, x: event.clientX, y: event.clientY })
@@ -647,7 +477,7 @@ function App(): React.JSX.Element {
           const mediaType = mediaTypeFromPath(link)
 
           return (
-            <button key={link} className="media-action" onClick={() => window.api.openMedia(link)}>
+            <button key={link} className="media-action" onClick={() => void window.api.openMedia(link)}>
               <span>{t.viewMedia(mediaType)}</span>
             </button>
           )
@@ -656,264 +486,83 @@ function App(): React.JSX.Element {
     )
   }
 
+  const selectedSessionTitle = selectedSession
+    ? sessionTitle(selectedSession, prefs.aliases, t.sessionFallback(shortId(selectedSession.id)))
+    : t.newConversation
+
   return (
     <main className={isSidebarHidden ? 'grok-shell sidebar-collapsed' : 'grok-shell'}>
-      {!isSidebarHidden && (
-        <aside className="grok-sidebar">
-          <div className="sidebar-head">
-            <div className="brand-logo" style={logoStyle} aria-label="GrokUI" />
-            <button
-              className="collapse-button"
-              aria-label={t.hideMenu}
-              title={t.hideMenu}
-              onClick={() => setIsSidebarHidden(true)}
-            >
-              &lt;&lt;
-            </button>
-          </div>
+      <Sidebar
+        isHidden={isSidebarHidden}
+        logoStyle={logoStyle}
+        t={t}
+        mode={mode}
+        setMode={setMode}
+        startNew={startNew}
+        refreshSessions={refreshSessions}
+        isLoadingSessions={isLoadingSessions}
+        cwd={cwd}
+        setCwd={setCwd}
+        model={model}
+        setModel={setModel}
+        visibleSessions={visibleSessions}
+        renderSession={renderSession}
+        onHide={() => setIsSidebarHidden(true)}
+      />
 
-          <div className="mode-tabs" aria-label={t.modesLabel}>
-            <button className={mode === 'grok' ? 'active' : ''} onClick={() => setMode('grok')}>
-              Grok
-            </button>
-            <button className={mode === 'agent' ? 'active' : ''} onClick={() => setMode('agent')}>
-              Agent
-            </button>
-          </div>
-
-          <nav className="primary-nav" aria-label={t.actionsLabel}>
-            <button onClick={startNew}>
-              <span className="nav-icon">+</span>
-              {t.newChat}
-            </button>
-            <button onClick={() => refreshSessions()}>
-              <span className="nav-icon">R</span>
-              {isLoadingSessions ? t.loadingSessions : t.refreshSessions}
-            </button>
-          </nav>
-
-          <section className="settings-block">
-            <label>
-              {t.workingDirectory}
-              <input value={cwd} onChange={(event) => setCwd(event.target.value)} />
-            </label>
-            <label>
-              {t.model}
-              <input
-                value={model}
-                placeholder={t.defaultCliPlaceholder}
-                onChange={(event) => setModel(event.target.value)}
-              />
-            </label>
-          </section>
-
-          <section className="history">
-            <div className="section-row">
-              <span>{t.grokSection}</span>
-              <button onClick={() => refreshSessions('grok')}>{t.refresh}</button>
-            </div>
-            <div className="history-list">
-              {visibleSessions.grok.map((session) => renderSession('grok', session))}
-            </div>
-          </section>
-
-          <section className="history">
-            <div className="section-row">
-              <span>{t.agentSection}</span>
-              <button onClick={() => refreshSessions('agent')}>{t.refresh}</button>
-            </div>
-            <div className="history-list">
-              {visibleSessions.agent.length === 0 && (
-                <p className="empty-list">{t.noAssignedAgentSessions}</p>
-              )}
-              {visibleSessions.agent.map((session) => renderSession('agent', session))}
-            </div>
-          </section>
-
-          <div className="account">
-            <div className="avatar">L</div>
-            <div>
-              <strong>lorenzo_aiello</strong>
-              <span>{cwd}</span>
-            </div>
-          </div>
-        </aside>
-      )}
-
-      <section
-        className={isDraggingFile ? 'chat-surface dragging-file' : 'chat-surface'}
+      <ChatPanel
+        t={t}
+        mode={mode}
+        isSidebarHidden={isSidebarHidden}
+        showSidebar={() => setIsSidebarHidden(false)}
+        selectedSessionTitle={selectedSessionTitle}
+        activeConversation={activeConversation}
+        error={error}
+        scrollerRef={scrollerRef}
+        updateScrollBottomVisibility={updateScrollBottomVisibility}
+        showScrollBottom={showScrollBottom}
+        scrollToBottom={scrollToBottom}
+        renderMediaActions={renderMediaActions}
+        messages={renderedMessages}
+        attachedFiles={attachedFiles}
+        removeAttachedFile={removeAttachedFile}
+        prompt={prompt}
+        setPrompt={setPrompt}
+        sendPrompt={sendPrompt}
+        isSending={isSending}
+        selectFiles={selectFiles}
+        isDraggingFile={isDraggingFile}
         onDragOver={(event) => {
           event.preventDefault()
           setIsDraggingFile(true)
         }}
         onDragLeave={() => setIsDraggingFile(false)}
         onDrop={dropFiles}
-      >
-        <header className="chat-topbar">
-          <div className="topbar-title">
-            {isSidebarHidden && (
-              <button className="show-menu-button" onClick={() => setIsSidebarHidden(false)}>
-                &gt;&gt;
-              </button>
-            )}
-            <div>
-              <p>{mode === 'grok' ? t.grokCli : t.agentCli}</p>
-              <h1>
-                {selectedSession
-                  ? sessionTitle(
-                      selectedSession,
-                      prefs.aliases,
-                      t.sessionFallback(shortId(selectedSession.id))
-                    )
-                  : t.newConversation}
-              </h1>
-            </div>
-          </div>
-          <div className="topbar-actions">
-            <button className="share-button" onClick={() => refreshAllSessions()}>
-              {t.sync}
-            </button>
-            {activeConversation.activeRunId && (
-              <button className="share-button danger" onClick={stopCurrent}>
-                {t.stop}
-              </button>
-            )}
-          </div>
-        </header>
-
-        {error && <div className="error-banner">{error}</div>}
-
-        <div className="conversation" ref={scrollerRef} onScroll={updateScrollBottomVisibility}>
-          {activeConversation.messages.length === 0 && (
-            <div className="empty-state">
-              <h2>{mode === 'grok' ? t.talkToGrok : t.startAgent}</h2>
-              <p>{t.emptyStateDescription}</p>
-            </div>
-          )}
-
-          {activeConversation.messages.map((message) => (
-            <article key={message.id} className={`chat-message ${message.role}`}>
-              <div className="message-author">
-                {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
-              </div>
-              <pre>{message.content}</pre>
-              {renderMediaActions([
-                ...extractMediaLinks(message.content),
-                ...(message.media ?? [])
-              ])}
-            </article>
-          ))}
-
-          {activeConversation.activeRunId && (
-            <article className="chat-message assistant pending">
-              <div className="message-author">{mode}</div>
-              <div className="typing-indicator" aria-label={t.responseInProgress}>
-                <span />
-                <span />
-                <span />
-              </div>
-            </article>
-          )}
-        </div>
-
-        {showScrollBottom && (
-          <button
-            className="scroll-bottom-button"
-            type="button"
-            title={t.scrollToLatest}
-            onClick={() => scrollToBottom('smooth')}
-          >
-            ↓
-          </button>
-        )}
-
-        <div className="composer-stack">
-          {attachedFiles.length > 0 && (
-            <div className="attachment-tray">
-              {attachedFiles.map((file) => (
-                <button
-                  key={file.path}
-                  className="attachment-chip"
-                  type="button"
-                  title={file.path}
-                  onClick={() => removeAttachedFile(file.path)}
-                >
-                  <span>{file.name}</span>
-                  <strong>x</strong>
-                </button>
-              ))}
-            </div>
-          )}
-          <form className="composer" onSubmit={sendPrompt}>
-            <button
-              className="attach-button"
-              type="button"
-              title={t.attachFile}
-              onClick={selectFiles}
-            >
-              +
-            </button>
-            <input
-              value={prompt}
-              placeholder={
-                mode === 'grok' ? t.askGrokPlaceholder : t.agentTaskPlaceholder
-              }
-              onChange={(event) => setPrompt(event.target.value)}
-            />
-            <button
-              className="voice-button"
-              disabled={(!prompt.trim() && attachedFiles.length === 0) || isSending}
-            >
-              {isSending ? '...' : t.send}
-            </button>
-          </form>
-        </div>
-
-        {isDraggingFile && <div className="drop-hint">{t.dropHint}</div>}
-      </section>
+        refreshAllSessions={refreshAllSessions}
+        stopCurrent={stopCurrent}
+      />
 
       {contextMenu && (
-        <div className="session-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
-          <button onClick={() => renameSession(contextMenu.session)}>{t.rename}</button>
-          {contextMenu.mode === 'grok' && (
-            <button onClick={() => moveToAgent(contextMenu.session)}>{t.addToAgent}</button>
-          )}
-          <button onClick={() => hideSession(contextMenu.mode, contextMenu.session)}>
-            {t.hideOnlyInApp}
-          </button>
-        </div>
+        <SessionContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          mode={contextMenu.mode}
+          session={contextMenu.session}
+          t={t}
+          renameSession={renameSession}
+          moveToAgent={moveToAgent}
+          hideSession={hideSession}
+        />
       )}
 
       {renameTarget && (
-        <div className="dialog-backdrop" onClick={() => setRenameTarget(undefined)}>
-          <form
-            className="rename-dialog"
-            onSubmit={(event) => {
-              event.preventDefault()
-              confirmRename()
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <label>
-              {t.renameSession}
-              <input
-                value={renameTarget.value}
-                autoFocus
-                onChange={(event) =>
-                  setRenameTarget((current) =>
-                    current ? { ...current, value: event.target.value } : current
-                  )
-                }
-              />
-            </label>
-            <div className="dialog-actions">
-              <button type="button" onClick={() => setRenameTarget(undefined)}>
-                {t.cancel}
-              </button>
-              <button type="submit">{t.save}</button>
-            </div>
-          </form>
-        </div>
+        <RenameDialog
+          renameTarget={renameTarget}
+          t={t}
+          setRenameTarget={setRenameTarget}
+          confirmRename={confirmRename}
+          close={() => setRenameTarget(undefined)}
+        />
       )}
     </main>
   )

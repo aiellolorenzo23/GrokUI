@@ -1,9 +1,10 @@
 export type Locale = 'it' | 'en'
 
-type Dictionary = {
+export type Dictionary = {
   sessionFallback: (id: string) => string
   viewMedia: (mediaType: 'image' | 'video' | 'file') => string
   cliError: string
+  fileAttachmentsLabel: string
   hideMenu: string
   modesLabel: string
   actionsLabel: string
@@ -45,8 +46,10 @@ type Dictionary = {
 const dictionaries: Record<Locale, Dictionary> = {
   it: {
     sessionFallback: (id) => `(sessione ${id})`,
-    viewMedia: (mediaType) => (mediaType === 'video' ? 'Apri video' : 'Apri immagine'),
+    viewMedia: (mediaType) =>
+      mediaType === 'video' ? 'Apri video' : mediaType === 'file' ? 'Apri file' : 'Apri immagine',
     cliError: 'Errore CLI',
+    fileAttachmentsLabel: 'File allegati',
     hideMenu: 'Nascondi menu',
     modesLabel: 'Modalita',
     actionsLabel: 'Azioni',
@@ -87,8 +90,10 @@ const dictionaries: Record<Locale, Dictionary> = {
   },
   en: {
     sessionFallback: (id) => `(session ${id})`,
-    viewMedia: (mediaType) => (mediaType === 'video' ? 'Open video' : 'Open image'),
+    viewMedia: (mediaType) =>
+      mediaType === 'video' ? 'Open video' : mediaType === 'file' ? 'Open file' : 'Open image',
     cliError: 'CLI error',
+    fileAttachmentsLabel: 'File attachments',
     hideMenu: 'Hide menu',
     modesLabel: 'Modes',
     actionsLabel: 'Actions',
