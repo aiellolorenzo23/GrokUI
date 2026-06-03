@@ -650,55 +650,20 @@ button:disabled {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.message-code-block pre {
+.shiki-shell {
   overflow-x: auto;
+}
+
+.shiki-shell .shiki {
+  min-width: 100%;
   margin: 0;
   padding: 16px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0)),
-    #0a0d11;
-  white-space: pre;
-}
-
-.message-code-block pre code {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: #e6edf3;
+    #0a0d11 !important;
+  font-family: 'Cascadia Mono', Consolas, 'SFMono-Regular', monospace;
   font-size: 13px;
   line-height: 1.72;
-}
-
-.code-line {
-  display: block;
-}
-
-.token-comment {
-  color: #6a9955;
-}
-
-.token-string {
-  color: #ce9178;
-}
-
-.token-number {
-  color: #b5cea8;
-}
-
-.token-keyword {
-  color: #569cd6;
-}
-
-.token-operator {
-  color: #d4d4d4;
-}
-
-.token-property {
-  color: #9cdcfe;
-}
-
-.token-command {
-  color: #4ec9b0;
 }
 
 .message-list,
@@ -714,6 +679,18 @@ button:disabled {
 
 .message-list li {
   white-space: pre-wrap;
+}
+
+.message-list li.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  list-style: none;
+  margin-left: -22px;
+}
+
+.message-list li.task-item input {
+  margin-top: 0.3em;
 }
 
 .message-quote {

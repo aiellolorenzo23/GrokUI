@@ -1,34 +1,28 @@
-import { useState, type DragEvent, type FormEvent, type RefObject } from 'react'
+import { useEffect, useState, type DragEvent, type FormEvent, type RefObject } from 'react'
 import type { CliMode } from '../../../shared/types'
 import type { AssistantViewMode, AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
-
-type CodeToken = {
-  text: string
-  kind:
-    | 'plain'
-    | 'comment'
-    | 'string'
-    | 'number'
-    | 'keyword'
-    | 'operator'
-    | 'property'
-    | 'command'
-}
+import { highlightCodeToHtml, normalizeHighlightLanguage } from '../utils/highlight'
 
 type InlineToken =
   | { type: 'text'; value: string }
   | { type: 'code'; value: string }
   | { type: 'strong'; value: string }
   | { type: 'link'; value: string; target: string }
+  | { type: 'markdown-link'; value: string; target: string }
 
 type MarkdownBlock =
   | { type: 'heading'; level: number; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'code'; code: string; language: string }
-  | { type: 'list'; ordered: boolean; items: string[] }
+  | { type: 'list'; ordered: boolean; items: Array<{ text: string; checked?: boolean }> }
   | { type: 'quote'; lines: string[] }
-  | { type: 'table'; headers: string[]; rows: string[][] }
+  | {
+      type: 'table'
+      headers: string[]
+      alignments: Array<'left' | 'center' | 'right' | undefined>
+      rows: string[][]
+    }
 
 function parseStyledSegment(segment: string): InlineToken[] {
   const tokens: InlineToken[] = []
@@ -55,7 +49,7 @@ function parseStyledSegment(segment: string): InlineToken[] {
 function parseLinkTokens(segment: string): InlineToken[] {
   const tokens: InlineToken[] = []
   const pattern =
-    /(?:file:\/\/\/[^\s)]+|https?:\/\/[^\s)]+|[A-Za-z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]+)/g
+    /\[([^\]]+)\]\(([^)\s]+)\)|(?:file:\/\/\/[^\s)]+|https?:\/\/[^\s)]+|[A-Za-z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]+)/g
   let lastIndex = 0
 
   for (const match of segment.matchAll(pattern)) {
@@ -65,10 +59,18 @@ function parseLinkTokens(segment: string): InlineToken[] {
     }
 
     const rawTarget = match[0]
-    const target = rawTarget.replace(/[),.;]+$/g, '')
-    const trailing = rawTarget.slice(target.length)
-    tokens.push({ type: 'link', value: target, target })
-    if (trailing) tokens.push({ type: 'text', value: trailing })
+    if (match[1] && match[2]) {
+      tokens.push({
+        type: 'markdown-link',
+        value: match[1],
+        target: match[2]
+      })
+    } else {
+      const target = rawTarget.replace(/[),.;]+$/g, '')
+      const trailing = rawTarget.slice(target.length)
+      tokens.push({ type: 'link', value: target, target })
+      if (trailing) tokens.push({ type: 'text', value: trailing })
+    }
     lastIndex = index + rawTarget.length
   }
 
@@ -77,6 +79,10 @@ function parseLinkTokens(segment: string): InlineToken[] {
   }
 
   return tokens.length > 0 ? tokens : [{ type: 'text', value: segment }]
+}
+
+function unescapeMarkdownText(text: string): string {
+  return text.replace(/\\([\\`*_{}\[\]()#+\-.!|>])/g, '$1')
 }
 
 function parseInlineTokens(text: string): InlineToken[] {
@@ -102,9 +108,18 @@ function parseInlineTokens(text: string): InlineToken[] {
 }
 
 function renderInlineContent(text: string): React.JSX.Element[] {
-  return parseInlineTokens(text).map((token, index) =>
+  return parseInlineTokens(unescapeMarkdownText(text)).map((token, index) =>
     token.type === 'code' ? (
       <code key={`${token.type}_${index}`}>{token.value}</code>
+    ) : token.type === 'markdown-link' ? (
+      <button
+        key={`${token.type}_${index}`}
+        type="button"
+        className="message-inline-link"
+        onClick={() => void window.api.openMedia(token.target)}
+      >
+        {token.value}
+      </button>
     ) : token.type === 'link' ? (
       <button
         key={`${token.type}_${index}`}
@@ -131,6 +146,23 @@ function isTableSeparator(line: string): boolean {
   return /^\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?$/.test(line.trim())
 }
 
+function parseTableAlignments(line: string): Array<'left' | 'center' | 'right' | undefined> {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => {
+      const trimmed = cell.trim()
+      const starts = trimmed.startsWith(':')
+      const ends = trimmed.endsWith(':')
+      if (starts && ends) return 'center'
+      if (ends) return 'right'
+      if (starts) return 'left'
+      return undefined
+    })
+}
+
 function parseTableRow(line: string): string[] {
   return line
     .trim()
@@ -138,74 +170,6 @@ function parseTableRow(line: string): string[] {
     .replace(/\|$/, '')
     .split('|')
     .map((cell) => cell.trim())
-}
-
-function inferCodeLanguage(language: string, code: string): string {
-  if (language) return language.toLowerCase()
-  if (/^\s*[{[]/.test(code)) return 'json'
-  if (/^\s*(Get-|Set-|New-|Write-|Select-)/m.test(code)) return 'powershell'
-  if (/^\s*(const|let|function|import|export)\s/m.test(code)) return 'typescript'
-  if (/^\s*(def |import |from )/m.test(code)) return 'python'
-  return 'text'
-}
-
-function classifyCodeSegment(segment: string, language: string): CodeToken['kind'] {
-  const normalized = language.toLowerCase()
-  if (/^\s*(\/\/|#)/.test(segment)) return 'comment'
-  if (/^".*"|'[^']*'$|^`[^`]*`$/.test(segment)) return 'string'
-  if (/^\d+(?:\.\d+)?$/.test(segment)) return 'number'
-  if (/^[{}()[\].,:;]+$/.test(segment)) return 'operator'
-  if (normalized === 'json' && /^[A-Za-z_][\w-]*$/.test(segment)) return 'property'
-  if (
-    /^(const|let|var|function|return|if|else|for|while|import|export|from|async|await|class|new|true|false|null|undefined|try|catch|throw|type|interface)$/.test(
-      segment
-    )
-  )
-    return 'keyword'
-  if (
-    normalized === 'powershell' &&
-    /^(Get|Set|New|Write|Select|Where|ForEach|ConvertTo|ConvertFrom)-[\w-]+$/.test(segment)
-  )
-    return 'command'
-  if (
-    normalized === 'bash' &&
-    /^(echo|cat|ls|cd|npm|node|git|pnpm|yarn|mkdir|rm|cp|mv)$/.test(segment)
-  )
-    return 'command'
-
-  return 'plain'
-}
-
-function tokenizeCodeLine(line: string, language: string): CodeToken[] {
-  const pattern =
-    /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|\/\/.*$|#.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][\w-]*\b|[{}()[\].,:;=+\-/*<>!?|&]+|\s+/gm
-  const parts = line.match(pattern)
-  if (!parts) return [{ text: line, kind: 'plain' }]
-
-  return parts.map((part) => ({
-    text: part,
-    kind: /^\s+$/.test(part) ? 'plain' : classifyCodeSegment(part, language)
-  }))
-}
-
-function HighlightedCode({ code, language }: { code: string; language: string }): React.JSX.Element {
-  const normalizedLanguage = inferCodeLanguage(language, code)
-  const lines = code.split('\n')
-
-  return (
-    <code>
-      {lines.map((line, lineIndex) => (
-        <span key={`line_${lineIndex}`} className="code-line">
-          {tokenizeCodeLine(line, normalizedLanguage).map((token, tokenIndex) => (
-            <span key={`token_${lineIndex}_${tokenIndex}`} className={`token-${token.kind}`}>
-              {token.text}
-            </span>
-          ))}
-          {lineIndex < lines.length - 1 && '\n'}
-        </span>
-      ))}
-    </code>
-  )
 }
 
 function parseMarkdownBlocks(content: string): MarkdownBlock[] {
@@ -267,6 +231,7 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       isTableSeparator(lines[index + 1])
     ) {
       const headers = parseTableRow(line)
+      const alignments = parseTableAlignments(lines[index + 1])
       const rows: string[][] = []
       index += 2
 
@@ -275,20 +240,26 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
         index += 1
       }
 
-      blocks.push({ type: 'table', headers, rows })
+      blocks.push({ type: 'table', headers, alignments, rows })
       continue
     }
 
     if (/^([-*])\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
       const ordered = /^\d+\.\s+/.test(trimmed)
-      const items: string[] = []
+      const items: Array<{ text: string; checked?: boolean }> = []
 
       while (index < lines.length) {
         const current = lines[index].trim()
         const matchesCurrent = ordered ? /^\d+\.\s+/.test(current) : /^([-*])\s+/.test(current)
         if (!matchesCurrent) break
 
-        items.push(current.replace(ordered ? /^\d+\.\s+/ : /^([-*])\s+/, ''))
+        const listText = current.replace(ordered ? /^\d+\.\s+/ : /^([-*])\s+/, '')
+        const taskMatch = listText.match(/^\[( |x|X)\]\s+(.+)$/)
+        if (taskMatch) {
+          items.push({ text: taskMatch[2], checked: taskMatch[1].toLowerCase() === 'x' })
+        } else {
+          items.push({ text: listText })
+        }
         index += 1
       }
 
@@ -327,13 +298,30 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
 function CodeBlock({
   code,
   language,
-  t
+  t,
+  assistantViewMode
 }: {
   code: string
   language: string
   t: Dictionary
+  assistantViewMode: AssistantViewMode
 }): React.JSX.Element {
   const [didCopy, setDidCopy] = useState(false)
+  const [html, setHtml] = useState<string>('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    void highlightCodeToHtml(code, normalizeHighlightLanguage(language), assistantViewMode).then(
+      (result) => {
+        if (!cancelled) setHtml(result)
+      }
+    )
+
+    return () => {
+      cancelled = true
+    }
+  }, [assistantViewMode, code, language])
 
   const copyCode = async (): Promise<void> => {
     try {
@@ -360,21 +348,35 @@ function CodeBlock({
           {didCopy ? t.copied : t.copyCode}
         </button>
       </div>
-      <pre>
-        <HighlightedCode code={code} language={language} />
-      </pre>
+      <div className="shiki-shell" dangerouslySetInnerHTML={{ __html: html }} />
     </section>
   )
 }
 
-function MessageContent({ content, t }: { content: string; t: Dictionary }): React.JSX.Element {
+function MessageContent({
+  content,
+  t,
+  assistantViewMode
+}: {
+  content: string
+  t: Dictionary
+  assistantViewMode: AssistantViewMode
+}): React.JSX.Element {
   const blocks = parseMarkdownBlocks(content)
 
   return (
     <div className="message-content">
       {blocks.map((block, index) => {
         if (block.type === 'code') {
-          return <CodeBlock key={`code_${index}`} code={block.code} language={block.language} t={t} />
+          return (
+            <CodeBlock
+              key={`code_${index}`}
+              code={block.code}
+              language={block.language}
+              t={t}
+              assistantViewMode={assistantViewMode}
+            />
+          )
         }
 
         if (block.type === 'heading') {
@@ -397,7 +399,12 @@ function MessageContent({ content, t }: { content: string; t: Dictionary }): Rea
           return (
             <ListTag key={`list_${index}`} className="message-list">
               {block.items.map((item, itemIndex) => (
-                <li key={`item_${itemIndex}`}>{renderInlineContent(item)}</li>
+                <li key={`item_${itemIndex}`} className={item.checked !== undefined ? 'task-item' : ''}>
+                  {item.checked !== undefined && (
+                    <input type="checkbox" checked={item.checked} readOnly tabIndex={-1} />
+                  )}
+                  <span>{renderInlineContent(item.text)}</span>
+                </li>
               ))}
             </ListTag>
           )
@@ -410,7 +417,12 @@ function MessageContent({ content, t }: { content: string; t: Dictionary }): Rea
                 <thead>
                   <tr>
                     {block.headers.map((header, headerIndex) => (
-                      <th key={`header_${headerIndex}`}>{renderInlineContent(header)}</th>
+                      <th
+                        key={`header_${headerIndex}`}
+                        style={{ textAlign: block.alignments[headerIndex] ?? 'left' }}
+                      >
+                        {renderInlineContent(header)}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -418,7 +430,12 @@ function MessageContent({ content, t }: { content: string; t: Dictionary }): Rea
                   {block.rows.map((row, rowIndex) => (
                     <tr key={`row_${rowIndex}`}>
                       {row.map((cell, cellIndex) => (
-                        <td key={`cell_${rowIndex}_${cellIndex}`}>{renderInlineContent(cell)}</td>
+                        <td
+                          key={`cell_${rowIndex}_${cellIndex}`}
+                          style={{ textAlign: block.alignments[cellIndex] ?? 'left' }}
+                        >
+                          {renderInlineContent(cell)}
+                        </td>
                       ))}
                     </tr>
                   ))}
@@ -553,7 +570,11 @@ export function ChatPanel({
             <div className="message-author">
               {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
             </div>
-            <MessageContent content={message.content} t={t} />
+            <MessageContent
+              content={message.content}
+              t={t}
+              assistantViewMode={assistantViewMode}
+            />
             {renderMediaActions([...(message.mediaLinks ?? []), ...(message.media ?? [])])}
           </article>
         ))}
