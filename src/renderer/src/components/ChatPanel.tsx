@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent, type FormEvent, type RefObject } from 'react'
+import { type CSSProperties, useEffect, useMemo, useState, type DragEvent, type FormEvent, type RefObject } from 'react'
 import type { CliContextUsage, CliContextUsageSupport, CliMode } from '../../../shared/types'
 import type { AssistantViewMode, AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
@@ -477,6 +477,7 @@ type ChatPanelProps = {
   t: Dictionary
   mode: CliMode
   isSidebarHidden: boolean
+  logoStyle: CSSProperties
   showSidebar: () => void
   selectedSessionTitle: string
   activeConversation: ConversationState
@@ -508,6 +509,7 @@ export function ChatPanel({
   t,
   mode,
   isSidebarHidden,
+  logoStyle,
   showSidebar,
   selectedSessionTitle,
   activeConversation,
@@ -559,19 +561,28 @@ export function ChatPanel({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <header className="chat-topbar">
+      <header className={isSidebarHidden ? 'chat-topbar sidebar-hidden' : 'chat-topbar'}>
         <div className="topbar-title">
-          {isSidebarHidden && (
+          <div className="topbar-sidebar-transition">
             <button
-              className="sidebar-toggle-button show-menu-button"
+              className={
+                isSidebarHidden
+                  ? 'sidebar-toggle-button show-menu-button visible'
+                  : 'sidebar-toggle-button show-menu-button'
+              }
               title={t.showMenu}
               aria-label={t.showMenu}
               onClick={showSidebar}
             >
               <span aria-hidden="true">&rsaquo;</span>
             </button>
-          )}
-          <div>
+            <div
+              className={isSidebarHidden ? 'topbar-hidden-brand visible' : 'topbar-hidden-brand'}
+              style={logoStyle}
+              aria-hidden={!isSidebarHidden}
+            />
+          </div>
+          <div className={isSidebarHidden ? 'topbar-copy shifted' : 'topbar-copy'}>
             <p>{mode === 'grok' ? t.grokCli : t.agentCli}</p>
             <h1>{selectedSessionTitle}</h1>
             <span className="topbar-subtitle">

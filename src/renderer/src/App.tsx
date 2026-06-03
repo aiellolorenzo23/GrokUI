@@ -552,6 +552,7 @@ function App(): React.JSX.Element {
         t={t}
         mode={mode}
         isSidebarHidden={isSidebarHidden}
+        logoStyle={logoStyle}
         showSidebar={() => setIsSidebarHidden(false)}
         selectedSessionTitle={selectedSessionTitle}
         activeConversation={activeConversation}
