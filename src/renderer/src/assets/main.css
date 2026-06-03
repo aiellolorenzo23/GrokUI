@@ -1451,24 +1451,53 @@ button:disabled {
 .scroll-bottom-button {
   position: absolute;
   left: 50%;
-  bottom: 92px;
+  bottom: 96px;
   z-index: 7;
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
-  color: var(--text);
-  background: #101113;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
-  font-size: 18px;
-  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(18, 20, 22, 0.34);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transform: translateX(-50%);
+  backdrop-filter: blur(8px) saturate(115%);
+  -webkit-backdrop-filter: blur(8px) saturate(115%);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .scroll-bottom-button:hover {
-  background: var(--hover);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  background: rgba(28, 31, 35, 0.46);
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.scroll-bottom-button:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+.scroll-bottom-button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.scroll-bottom-button-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .session-menu {

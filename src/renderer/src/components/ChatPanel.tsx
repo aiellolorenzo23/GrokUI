@@ -670,9 +670,17 @@ export function ChatPanel({
           className="scroll-bottom-button"
           type="button"
           title={t.scrollToLatest}
+          aria-label={t.scrollToLatest}
           onClick={() => scrollToBottom('smooth')}
         >
-          &darr;
+          <span className="scroll-bottom-button-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20" focusable="false">
+              <path
+                d="M5.47 7.22a.75.75 0 0 1 1.06 0L10 10.69l3.47-3.47a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 0 1 0-1.06Z"
+                fill="currentColor"
+              />
+            </svg>
+          </span>
         </button>
       )}
 
