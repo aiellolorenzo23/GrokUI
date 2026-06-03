@@ -2,6 +2,7 @@ import {
   type CSSProperties,
   type DragEvent,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -189,7 +190,7 @@ function App(): React.JSX.Element {
       setContextMenu(undefined)
     }
 
-    const onKeyDown = (event: KeyboardEvent): void => {
+    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
       if (event.key === 'Escape') setContextMenu(undefined)
     }
 
@@ -451,6 +452,12 @@ function App(): React.JSX.Element {
     }
   }
 
+  const onComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key !== 'Enter' || event.shiftKey) return
+    event.preventDefault()
+    void sendPrompt(event)
+  }
+
   const renameSession = (session: CliSession): void => {
     setContextMenu(undefined)
     setRenameTarget({
@@ -570,6 +577,7 @@ function App(): React.JSX.Element {
         prompt={prompt}
         setPrompt={setPrompt}
         sendPrompt={sendPrompt}
+        onComposerKeyDown={onComposerKeyDown}
         isSending={isSending}
         selectFiles={selectFiles}
         isDraggingFile={isDraggingFile}

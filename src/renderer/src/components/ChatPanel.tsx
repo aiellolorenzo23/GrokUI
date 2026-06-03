@@ -1,4 +1,13 @@
-import { type CSSProperties, useEffect, useMemo, useState, type DragEvent, type FormEvent, type RefObject } from 'react'
+import {
+  type CSSProperties,
+  useEffect,
+  useMemo,
+  useState,
+  type DragEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type RefObject
+} from 'react'
 import type { CliContextUsage, CliContextUsageSupport, CliMode } from '../../../shared/types'
 import type { AssistantViewMode, AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
@@ -495,6 +504,7 @@ type ChatPanelProps = {
   prompt: string
   setPrompt: (value: string) => void
   sendPrompt: (event: FormEvent) => Promise<void>
+  onComposerKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
   isSending: boolean
   selectFiles: () => Promise<void>
   isDraggingFile: boolean
@@ -527,6 +537,7 @@ export function ChatPanel({
   prompt,
   setPrompt,
   sendPrompt,
+  onComposerKeyDown,
   isSending,
   selectFiles,
   isDraggingFile,
@@ -710,10 +721,12 @@ export function ChatPanel({
           >
             +
           </button>
-          <input
+          <textarea
             value={prompt}
+            rows={1}
             placeholder={mode === 'grok' ? t.askGrokPlaceholder : t.agentTaskPlaceholder}
             onChange={(event) => setPrompt(event.target.value)}
+            onKeyDown={onComposerKeyDown}
           />
           <button
             className="voice-button"

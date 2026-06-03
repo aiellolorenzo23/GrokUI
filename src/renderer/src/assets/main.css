@@ -1368,28 +1368,34 @@ button:disabled {
 .composer {
   display: grid;
   width: 100%;
-  min-height: 50px;
+  min-height: 54px;
   grid-template-columns: 34px minmax(0, 1fr) minmax(58px, auto);
-  align-items: center;
+  align-items: end;
   gap: 4px;
   padding: 6px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 24px;
   background: var(--pill);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
 }
 
-.composer input {
+.composer textarea {
   min-width: 0;
-  height: 36px;
+  min-height: 36px;
+  max-height: 132px;
   border: 0;
+  padding: 8px 2px 7px 0;
   color: var(--text);
   background: transparent;
   outline: none;
+  resize: none;
   user-select: text;
+  overflow-y: auto;
+  field-sizing: content;
+  line-height: 1.45;
 }
 
-.composer input::placeholder {
+.composer textarea::placeholder {
   color: #8a8f96;
 }
 
