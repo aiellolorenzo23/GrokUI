@@ -528,6 +528,36 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.message-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: -2px 0 6px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.chat-message:hover .message-toolbar,
+.chat-message:focus-within .message-toolbar {
+  opacity: 1;
+}
+
+.message-copy-button {
+  min-height: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0 9px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.03em;
+}
+
+.message-copy-button:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .message-content {
   display: grid;
   gap: 12px;
@@ -573,6 +603,15 @@ button:disabled {
 
 .message-content strong {
   font-weight: 800;
+}
+
+.message-content em {
+  font-style: italic;
+}
+
+.message-content del {
+  color: var(--muted);
+  text-decoration-thickness: 1.5px;
 }
 
 .assistant-view-cli .chat-message.assistant .message-content h1,
@@ -703,6 +742,14 @@ button:disabled {
 .message-list,
 .message-quote {
   margin: 0;
+}
+
+.message-rule {
+  width: 100%;
+  height: 1px;
+  margin: 2px 0;
+  border: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
 }
 
 .message-list {

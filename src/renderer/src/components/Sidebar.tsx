@@ -47,7 +47,7 @@ export function Sidebar({
       <div className="sidebar-head">
         <div className="brand-logo" style={logoStyle} aria-label="GrokUI" />
         <button className="sidebar-toggle-button" aria-label={t.hideMenu} title={t.hideMenu} onClick={onHide}>
-          <span aria-hidden="true">‹</span>
+          <span aria-hidden="true">&lsaquo;</span>
         </button>
       </div>
 

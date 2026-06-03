@@ -39,6 +39,7 @@ export type Dictionary = {
   responseInProgress: string
   scrollToLatest: string
   copyCode: string
+  copyMessage: string
   copied: string
   attachFile: string
   askGrokPlaceholder: string
@@ -95,6 +96,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     responseInProgress: 'Risposta in corso',
     scrollToLatest: "Vai all'ultimo messaggio",
     copyCode: 'Copia',
+    copyMessage: 'Copia messaggio',
     copied: 'Copiato',
     attachFile: 'Allega file',
     askGrokPlaceholder: 'Chiedi qualsiasi cosa a Grok',
@@ -149,6 +151,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     responseInProgress: 'Response in progress',
     scrollToLatest: 'Go to latest message',
     copyCode: 'Copy',
+    copyMessage: 'Copy message',
     copied: 'Copied',
     attachFile: 'Attach file',
     askGrokPlaceholder: 'Ask Grok anything',

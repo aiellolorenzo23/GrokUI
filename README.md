@@ -19,11 +19,11 @@ L'app avvia i comandi `grok` e `agent` dietro le quinte, senza finestre CMD visi
 - UI desktop scura ispirata a Grok browser
 - lingua UI sincronizzata con la lingua del sistema (`it`/`en`, fallback a inglese)
 - sidebar collassabile
-- sezioni separate per `grok` e `agent`
+- lista `Conversazioni` contestuale alla modalita attiva (`grok` o `agent`)
 - recupero sessioni esistenti tramite `grok sessions list` e `agent sessions list`
 - apertura transcript tramite `grok export` e `agent export`
 - output streaming renderizzato come chat
-- renderer messaggi con paragrafi markdown, inline code, grassetto, heading, liste, task list, citazioni, tabelle e code block con triple backtick
+- renderer messaggi con paragrafi markdown, inline code, grassetto, corsivo, barrato, heading, separatori, liste, task list, citazioni, tabelle e code block con triple backtick
 - syntax highlighting reale nei code block
 - indicatore di risposta in corso nella conversazione
 - stop della generazione in corso
@@ -31,6 +31,7 @@ L'app avvia i comandi `grok` e `agent` dietro le quinte, senza finestre CMD visi
 - modello configurabile, se supportato dalla CLI
 - switch tra stile visivo `GrokUI` e stile `CLI` per i messaggi assistant
 - link cliccabili per path locali, URL e link markdown nei messaggi
+- copia rapida del messaggio e dei blocchi codice
 - rinomina locale delle sessioni
 - nascondi sessione solo nella UI
 - assegnazione locale di sessioni alla sezione Agent
@@ -129,7 +130,7 @@ Build non impacchettata:
 npm run build:unpack
 ```
 
-Nota: `build:win` esegue prima `npm run build` (icone, typecheck e build Electron), mentre `build:mac` e `build:linux` al momento eseguono direttamente `electron-vite build` prima del packaging. Se vuoi un comportamento uniforme, conviene allineare anche questi script.
+Tutti gli script `build:*` eseguono prima `npm run build`, quindi icone, typecheck e build Electron restano uniformi su Windows, Linux e macOS.
 
 ## Script Utili
 
@@ -140,6 +141,8 @@ Nota: `build:win` esegue prima `npm run build` (icone, typecheck e build Electro
 - `npm run build:win`: build installer/app Windows
 - `npm run build:linux`: build pacchetti Linux
 - `npm run build:mac`: build pacchetto macOS
+- `npm run test`: esegue la suite Vitest sul parser markdown e sull'highlighter
+- `npm run test:watch`: esegue Vitest in watch mode
 - `npm run lint`: esegue ESLint
 - `npm run format`: formatta il progetto con Prettier
 
@@ -168,7 +171,7 @@ Nota: `build:win` esegue prima `npm run build` (icone, typecheck e build Electro
 - I file allegati non vengono caricati dall'app: viene inviato solo il path locale come testo.
 - Le sessioni visibili possono cambiare in base alla working directory usata con `grok` o `agent`.
 - Il comportamento di alcune funzioni puo cambiare se cambia la CLI sottostante.
-- Il renderer messaggi supporta markdown leggero e code block, ma non include ancora un parser markdown completo con tutte le estensioni possibili.
+- Il renderer messaggi supporta un sottoinsieme markdown piu ricco e code block evidenziati, ma non include ancora tutte le estensioni possibili di un parser markdown completo.
 
 ## English
 
@@ -191,11 +194,11 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - dark desktop UI inspired by Grok in the browser
 - UI language synced with the system language (`it`/`en`, English fallback)
 - collapsible sidebar
-- separate `grok` and `agent` sections
+- contextual `Conversations` list driven by the active mode (`grok` or `agent`)
 - existing session discovery via `grok sessions list` and `agent sessions list`
 - transcript loading via `grok export` and `agent export`
 - streaming output rendered as chat messages
-- message renderer with markdown paragraphs, inline code, bold text, headings, lists, task lists, quotes, tables, and triple-backtick code blocks
+- message renderer with markdown paragraphs, inline code, bold, emphasis, strikethrough, headings, rules, lists, task lists, quotes, tables, and triple-backtick code blocks
 - full syntax highlighting in code blocks
 - in-chat pending response indicator
 - stop current generation
@@ -203,6 +206,7 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - configurable model, when supported by the CLI
 - switch between `GrokUI` and `CLI` visual styles for assistant messages
 - clickable local paths, URLs, and markdown links inside messages
+- quick copy for messages and code blocks
 - local session rename
 - hide sessions locally in the UI
 - local assignment of sessions to the Agent section
@@ -301,7 +305,7 @@ Unpacked build:
 npm run build:unpack
 ```
 
-Note: `build:win` runs `npm run build` first (icons, typecheck, and Electron build), while `build:mac` and `build:linux` currently run `electron-vite build` directly before packaging. If you want consistent behavior, align those scripts as well.
+All `build:*` scripts run `npm run build` first, so icon generation, typecheck, and the Electron build stay consistent across Windows, Linux, and macOS.
 
 ### Useful Scripts
 
@@ -312,6 +316,8 @@ Note: `build:win` runs `npm run build` first (icons, typecheck, and Electron bui
 - `npm run build:win`: build the Windows installer/app
 - `npm run build:linux`: build Linux packages
 - `npm run build:mac`: build the macOS package
+- `npm run test`: run the Vitest suite for the markdown parser and highlighter
+- `npm run test:watch`: run Vitest in watch mode
 - `npm run lint`: run ESLint
 - `npm run format`: format the project with Prettier
 

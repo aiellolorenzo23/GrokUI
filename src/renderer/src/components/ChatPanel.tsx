@@ -2,110 +2,8 @@ import { useEffect, useState, type DragEvent, type FormEvent, type RefObject } f
 import type { CliMode } from '../../../shared/types'
 import type { AssistantViewMode, AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
-import { highlightCodeToHtml, normalizeHighlightLanguage } from '../utils/highlight'
-
-type InlineToken =
-  | { type: 'text'; value: string }
-  | { type: 'code'; value: string }
-  | { type: 'strong'; value: string }
-  | { type: 'link'; value: string; target: string }
-  | { type: 'markdown-link'; value: string; target: string }
-
-type MarkdownBlock =
-  | { type: 'heading'; level: number; text: string }
-  | { type: 'paragraph'; text: string }
-  | { type: 'code'; code: string; language: string }
-  | { type: 'list'; ordered: boolean; items: Array<{ text: string; checked?: boolean }> }
-  | { type: 'quote'; lines: string[] }
-  | {
-      type: 'table'
-      headers: string[]
-      alignments: Array<'left' | 'center' | 'right' | undefined>
-      rows: string[][]
-    }
-
-function parseStyledSegment(segment: string): InlineToken[] {
-  const tokens: InlineToken[] = []
-  const pattern = /(\*\*([^*]+)\*\*)/g
-  let lastIndex = 0
-
-  for (const match of segment.matchAll(pattern)) {
-    const index = match.index ?? 0
-    if (index > lastIndex) {
-      tokens.push(...parseLinkTokens(segment.slice(lastIndex, index)))
-    }
-
-    tokens.push({ type: 'strong', value: match[2] })
-    lastIndex = index + match[0].length
-  }
-
-  if (lastIndex < segment.length) {
-    tokens.push(...parseLinkTokens(segment.slice(lastIndex)))
-  }
-
-  return tokens.length > 0 ? tokens : [{ type: 'text', value: segment }]
-}
-
-function parseLinkTokens(segment: string): InlineToken[] {
-  const tokens: InlineToken[] = []
-  const pattern =
-    /\[([^\]]+)\]\(([^)\s]+)\)|(?:file:\/\/\/[^\s)]+|https?:\/\/[^\s)]+|[A-Za-z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]+)/g
-  let lastIndex = 0
-
-  for (const match of segment.matchAll(pattern)) {
-    const index = match.index ?? 0
-    if (index > lastIndex) {
-      tokens.push({ type: 'text', value: segment.slice(lastIndex, index) })
-    }
-
-    const rawTarget = match[0]
-    if (match[1] && match[2]) {
-      tokens.push({
-        type: 'markdown-link',
-        value: match[1],
-        target: match[2]
-      })
-    } else {
-      const target = rawTarget.replace(/[),.;]+$/g, '')
-      const trailing = rawTarget.slice(target.length)
-      tokens.push({ type: 'link', value: target, target })
-      if (trailing) tokens.push({ type: 'text', value: trailing })
-    }
-    lastIndex = index + rawTarget.length
-  }
-
-  if (lastIndex < segment.length) {
-    tokens.push({ type: 'text', value: segment.slice(lastIndex) })
-  }
-
-  return tokens.length > 0 ? tokens : [{ type: 'text', value: segment }]
-}
-
-function unescapeMarkdownText(text: string): string {
-  return text.replace(/\\([\\`*_{}\[\]()#+\-.!|>])/g, '$1')
-}
-
-function parseInlineTokens(text: string): InlineToken[] {
-  const tokens: InlineToken[] = []
-  const pattern = /`([^`]+)`/g
-  let lastIndex = 0
-
-  for (const match of text.matchAll(pattern)) {
-    const index = match.index ?? 0
-    if (index > lastIndex) {
-      tokens.push(...parseStyledSegment(text.slice(lastIndex, index)))
-    }
-
-    tokens.push({ type: 'code', value: match[1] })
-    lastIndex = index + match[0].length
-  }
-
-  if (lastIndex < text.length) {
-    tokens.push(...parseStyledSegment(text.slice(lastIndex)))
-  }
-
-  return tokens.length > 0 ? tokens : [{ type: 'text', value: text }]
-}
+import { getPlainCodeHtml, highlightCodeToHtml, normalizeHighlightLanguage } from '../utils/highlight'
+import { parseInlineTokens, parseMarkdownBlocks, unescapeMarkdownText } from '../utils/markdown'
 
 function renderInlineContent(text: string): React.JSX.Element[] {
   return parseInlineTokens(unescapeMarkdownText(text)).map((token, index) =>
@@ -129,6 +27,10 @@ function renderInlineContent(text: string): React.JSX.Element[] {
       >
         {token.value}
       </button>
+    ) : token.type === 'emphasis' ? (
+      <em key={`${token.type}_${index}`}>{token.value}</em>
+    ) : token.type === 'strike' ? (
+      <del key={`${token.type}_${index}`}>{token.value}</del>
     ) : token.type === 'strong' ? (
       <strong key={`${token.type}_${index}`}>{token.value}</strong>
     ) : (
@@ -137,162 +39,14 @@ function renderInlineContent(text: string): React.JSX.Element[] {
   )
 }
 
-function isTableLine(line: string): boolean {
-  const trimmed = line.trim()
-  return trimmed.includes('|') && trimmed.startsWith('|') && trimmed.endsWith('|')
-}
-
-function isTableSeparator(line: string): boolean {
-  return /^\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?$/.test(line.trim())
-}
-
-function parseTableAlignments(line: string): Array<'left' | 'center' | 'right' | undefined> {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => {
-      const trimmed = cell.trim()
-      const starts = trimmed.startsWith(':')
-      const ends = trimmed.endsWith(':')
-      if (starts && ends) return 'center'
-      if (ends) return 'right'
-      if (starts) return 'left'
-      return undefined
+function renderInlineLines(text: string): React.JSX.Element[] {
+  return unescapeMarkdownText(text)
+    .split('\n')
+    .flatMap((line, lineIndex, lines) => {
+      const content = renderInlineContent(line)
+      if (lineIndex === lines.length - 1) return content
+      return [...content, <br key={`br_${lineIndex}`} />]
     })
-}
-
-function parseTableRow(line: string): string[] {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim())
-}
-
-function parseMarkdownBlocks(content: string): MarkdownBlock[] {
-  const normalized = content.replace(/\r\n/g, '\n')
-  const lines = normalized.split('\n')
-  const blocks: MarkdownBlock[] = []
-  let index = 0
-
-  while (index < lines.length) {
-    const line = lines[index]
-    const trimmed = line.trim()
-
-    if (!trimmed) {
-      index += 1
-      continue
-    }
-
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/)
-    if (headingMatch) {
-      blocks.push({
-        type: 'heading',
-        level: headingMatch[1].length,
-        text: headingMatch[2].trim()
-      })
-      index += 1
-      continue
-    }
-
-    if (trimmed.startsWith('```')) {
-      const language = trimmed.slice(3).trim()
-      const codeLines: string[] = []
-      index += 1
-
-      while (index < lines.length && !lines[index].trim().startsWith('```')) {
-        codeLines.push(lines[index])
-        index += 1
-      }
-
-      if (index < lines.length) index += 1
-      blocks.push({ type: 'code', code: codeLines.join('\n'), language })
-      continue
-    }
-
-    if (/^>\s?/.test(trimmed)) {
-      const quoteLines: string[] = []
-
-      while (index < lines.length && /^>\s?/.test(lines[index].trim())) {
-        quoteLines.push(lines[index].trim().replace(/^>\s?/, ''))
-        index += 1
-      }
-
-      blocks.push({ type: 'quote', lines: quoteLines })
-      continue
-    }
-
-    if (
-      index + 1 < lines.length &&
-      isTableLine(line) &&
-      isTableSeparator(lines[index + 1])
-    ) {
-      const headers = parseTableRow(line)
-      const alignments = parseTableAlignments(lines[index + 1])
-      const rows: string[][] = []
-      index += 2
-
-      while (index < lines.length && isTableLine(lines[index])) {
-        rows.push(parseTableRow(lines[index]))
-        index += 1
-      }
-
-      blocks.push({ type: 'table', headers, alignments, rows })
-      continue
-    }
-
-    if (/^([-*])\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
-      const ordered = /^\d+\.\s+/.test(trimmed)
-      const items: Array<{ text: string; checked?: boolean }> = []
-
-      while (index < lines.length) {
-        const current = lines[index].trim()
-        const matchesCurrent = ordered ? /^\d+\.\s+/.test(current) : /^([-*])\s+/.test(current)
-        if (!matchesCurrent) break
-
-        const listText = current.replace(ordered ? /^\d+\.\s+/ : /^([-*])\s+/, '')
-        const taskMatch = listText.match(/^\[( |x|X)\]\s+(.+)$/)
-        if (taskMatch) {
-          items.push({ text: taskMatch[2], checked: taskMatch[1].toLowerCase() === 'x' })
-        } else {
-          items.push({ text: listText })
-        }
-        index += 1
-      }
-
-      blocks.push({ type: 'list', ordered, items })
-      continue
-    }
-
-    const paragraphLines: string[] = []
-    while (index < lines.length) {
-      const current = lines[index]
-      const currentTrimmed = current.trim()
-      if (
-        !currentTrimmed ||
-        /^(#{1,6})\s+(.+)$/.test(currentTrimmed) ||
-        currentTrimmed.startsWith('```') ||
-        (index + 1 < lines.length &&
-          isTableLine(current) &&
-          isTableSeparator(lines[index + 1])) ||
-        /^>\s?/.test(currentTrimmed) ||
-        /^([-*])\s+/.test(currentTrimmed) ||
-        /^\d+\.\s+/.test(currentTrimmed)
-      ) {
-        break
-      }
-
-      paragraphLines.push(current)
-      index += 1
-    }
-
-    blocks.push({ type: 'paragraph', text: paragraphLines.join('\n') })
-  }
-
-  return blocks
 }
 
 function CodeBlock({
@@ -307,10 +61,11 @@ function CodeBlock({
   assistantViewMode: AssistantViewMode
 }): React.JSX.Element {
   const [didCopy, setDidCopy] = useState(false)
-  const [html, setHtml] = useState<string>('')
+  const [html, setHtml] = useState<string>(() => getPlainCodeHtml(code))
 
   useEffect(() => {
     let cancelled = false
+    setHtml(getPlainCodeHtml(code))
 
     void highlightCodeToHtml(code, normalizeHighlightLanguage(language), assistantViewMode).then(
       (result) => {
@@ -388,10 +143,14 @@ function MessageContent({
           return (
             <blockquote key={`quote_${index}`} className="message-quote">
               {block.lines.map((line, lineIndex) => (
-                <p key={`quote_line_${lineIndex}`}>{renderInlineContent(line)}</p>
+                <p key={`quote_line_${lineIndex}`}>{renderInlineLines(line)}</p>
               ))}
             </blockquote>
           )
+        }
+
+        if (block.type === 'rule') {
+          return <hr key={`rule_${index}`} className="message-rule" />
         }
 
         if (block.type === 'list') {
@@ -403,7 +162,7 @@ function MessageContent({
                   {item.checked !== undefined && (
                     <input type="checkbox" checked={item.checked} readOnly tabIndex={-1} />
                   )}
-                  <span>{renderInlineContent(item.text)}</span>
+                  <span>{renderInlineLines(item.text)}</span>
                 </li>
               ))}
             </ListTag>
@@ -445,7 +204,7 @@ function MessageContent({
           )
         }
 
-        return <p key={`paragraph_${index}`}>{renderInlineContent(block.text)}</p>
+        return <p key={`paragraph_${index}`}>{renderInlineLines(block.text)}</p>
       })}
     </div>
   )
@@ -510,6 +269,20 @@ export function ChatPanel({
   refreshAllSessions,
   stopCurrent
 }: ChatPanelProps): React.JSX.Element {
+  const [copiedMessageId, setCopiedMessageId] = useState<string>()
+
+  const copyMessage = async (message: ChatMessage): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(message.content)
+      setCopiedMessageId(message.id)
+      window.setTimeout(() => {
+        setCopiedMessageId((current) => (current === message.id ? undefined : current))
+      }, 1600)
+    } catch {
+      setCopiedMessageId(undefined)
+    }
+  }
+
   return (
     <section
       className={
@@ -530,7 +303,7 @@ export function ChatPanel({
               aria-label={t.showMenu}
               onClick={showSidebar}
             >
-              <span aria-hidden="true">›</span>
+              <span aria-hidden="true">&rsaquo;</span>
             </button>
           )}
           <div>
@@ -574,6 +347,15 @@ export function ChatPanel({
           >
             <div className="message-author">
               {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
+            </div>
+            <div className="message-toolbar">
+              <button
+                className="message-copy-button"
+                type="button"
+                onClick={() => void copyMessage(message)}
+              >
+                {copiedMessageId === message.id ? t.copied : t.copyMessage}
+              </button>
             </div>
             <MessageContent
               content={message.content}
