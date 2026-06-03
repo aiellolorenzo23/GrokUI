@@ -32,6 +32,7 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - switch between `GrokUI` and `CLI` visual styles for assistant messages
 - clickable local paths, URLs, markdown links, and markdown images inside messages
 - quick copy for messages, code blocks, and markdown tables
+- inline image/video previews inside messages, with integrated `Open/View` actions
 - local session rename
 - hide sessions locally in the UI
 - local assignment of sessions to the Agent section
@@ -160,6 +161,8 @@ All `build:*` scripts run `npm run build` first, so icon generation, typecheck, 
   If a block has no explicit language and the detector cannot infer it confidently, GrokUI falls back to plain text rendering.
 - Generated media does not open
   Check that the file path in the message still exists on disk and is accessible by the OS.
+- Inline media preview does not update in development
+  Restart the full Electron app, not just the renderer. Preview loading depends on main-process protocol registration, so a renderer-only hot reload may not be enough after media-related changes.
 - Build fails on macOS or Linux
   `electron-builder` may require extra platform tooling or signing configuration depending on your target. Verify your local packaging prerequisites before assuming the app build is broken.
 - The UI is in English instead of Italian
@@ -183,6 +186,7 @@ All `build:*` scripts run `npm run build` first, so icon generation, typecheck, 
 - The separation between `grok` and `agent` in the sidebar is a UI concept; execution is delegated to the respective CLI commands.
 - Rename and hide session are local app preferences, not permanent changes in the CLI.
 - Attached files are not copied: Grok receives the local path as text.
+- Inline media previews are loaded through an internal app protocol, while `Open/View` still opens the original target through the OS.
 
 ## Limitations
 
@@ -190,4 +194,5 @@ All `build:*` scripts run `npm run build` first, so icon generation, typecheck, 
 - Attached files are not uploaded by the app; only the local path is sent as text.
 - Visible sessions may change depending on the working directory used with `grok` or `agent`.
 - Some app behavior may change when the underlying CLI changes.
+- Inline media previews currently focus on local image/video outputs already associated with a message.
 - The message renderer supports a richer markdown subset and highlighted code blocks, but it is still not a full markdown implementation with every possible extension.
