@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { CliMode, CliSession, CliStreamEvent } from '../../shared/types'
 import grokLogo from '../../../resources/logo.svg'
+import { getDictionary } from './i18n'
 
 type ChatMessage = {
   id: string
@@ -97,8 +98,12 @@ function normalizePrefs(value: unknown): SessionPrefs {
   }
 }
 
-function sessionTitle(session: CliSession, aliases: Record<string, string>): string {
-  return aliases[session.id] || session.summary || `(sessione ${shortId(session.id)})`
+function sessionTitle(
+  session: CliSession,
+  aliases: Record<string, string>,
+  fallbackLabel: string
+): string {
+  return aliases[session.id] || session.summary || fallbackLabel
 }
 
 function filenameFromPath(path: string): string {
@@ -242,6 +247,7 @@ function appendMediaToLastAssistant(messages: ChatMessage[], media: string[]): C
 }
 
 function App(): React.JSX.Element {
+  const [locale, setLocale] = useState('en')
   const [mode, setMode] = useState<CliMode>('grok')
   const [cwd, setCwd] = useState(defaultCwd)
   const [model, setModel] = useState('')
@@ -265,6 +271,7 @@ function App(): React.JSX.Element {
   const prefsLoadedRef = useRef(false)
   const logoStyle = { '--logo': `url(${grokLogo})` } as CSSProperties
   const activeConversation = conversations[mode]
+  const t = useMemo(() => getDictionary(locale), [locale])
 
   const visibleSessions = useMemo(
     () => ({
@@ -282,6 +289,10 @@ function App(): React.JSX.Element {
       visibleSessions[mode].find((session) => session.id === activeConversation.activeSessionId),
     [activeConversation.activeSessionId, mode, visibleSessions]
   )
+
+  useEffect(() => {
+    void window.api.getSystemLocale().then((value) => setLocale(value))
+  }, [])
 
   useEffect(() => {
     void window.api.readPreferences().then((storedPrefs) => {
@@ -381,10 +392,7 @@ function App(): React.JSX.Element {
             ...current,
             [event.mode]: {
               ...target,
-              messages: [
-                ...target.messages,
-                { id: createId(), role: 'system', content: event.text ?? 'Errore CLI' }
-              ]
+              messages: [...target.messages, { id: createId(), role: 'system', content: event.text ?? t.cliError }]
             }
           }
         }
@@ -403,7 +411,7 @@ function App(): React.JSX.Element {
         return current
       })
     })
-  }, [])
+  }, [t.cliError])
 
   const refreshSessions = async (targetMode: CliMode = mode): Promise<void> => {
     setIsLoadingSessions(true)
@@ -568,7 +576,10 @@ function App(): React.JSX.Element {
 
   const renameSession = (session: CliSession): void => {
     setContextMenu(undefined)
-    setRenameTarget({ session, value: sessionTitle(session, prefs.aliases) })
+    setRenameTarget({
+      session,
+      value: sessionTitle(session, prefs.aliases, t.sessionFallback(shortId(session.id)))
+    })
   }
 
   const confirmRename = (): void => {
@@ -619,7 +630,7 @@ function App(): React.JSX.Element {
         setContextMenu({ mode: targetMode, session, x: event.clientX, y: event.clientY })
       }}
     >
-      <strong>{sessionTitle(session, prefs.aliases)}</strong>
+      <strong>{sessionTitle(session, prefs.aliases, t.sessionFallback(shortId(session.id)))}</strong>
       <span>
         {session.updated} - {session.status}
       </span>
@@ -637,7 +648,7 @@ function App(): React.JSX.Element {
 
           return (
             <button key={link} className="media-action" onClick={() => window.api.openMedia(link)}>
-              <span>{mediaType === 'video' ? 'View Video' : 'View Image'}</span>
+              <span>{t.viewMedia(mediaType)}</span>
             </button>
           )
         })}
@@ -653,15 +664,15 @@ function App(): React.JSX.Element {
             <div className="brand-logo" style={logoStyle} aria-label="GrokUI" />
             <button
               className="collapse-button"
-              aria-label="Nascondi menu"
-              title="Nascondi menu"
+              aria-label={t.hideMenu}
+              title={t.hideMenu}
               onClick={() => setIsSidebarHidden(true)}
             >
               &lt;&lt;
             </button>
           </div>
 
-          <div className="mode-tabs" aria-label="Modalita">
+          <div className="mode-tabs" aria-label={t.modesLabel}>
             <button className={mode === 'grok' ? 'active' : ''} onClick={() => setMode('grok')}>
               Grok
             </button>
@@ -670,27 +681,27 @@ function App(): React.JSX.Element {
             </button>
           </div>
 
-          <nav className="primary-nav" aria-label="Azioni">
+          <nav className="primary-nav" aria-label={t.actionsLabel}>
             <button onClick={startNew}>
               <span className="nav-icon">+</span>
-              Nuova Chat
+              {t.newChat}
             </button>
             <button onClick={() => refreshSessions()}>
               <span className="nav-icon">R</span>
-              {isLoadingSessions ? 'Carico sessioni' : 'Aggiorna sessioni'}
+              {isLoadingSessions ? t.loadingSessions : t.refreshSessions}
             </button>
           </nav>
 
           <section className="settings-block">
             <label>
-              Working directory
+              {t.workingDirectory}
               <input value={cwd} onChange={(event) => setCwd(event.target.value)} />
             </label>
             <label>
-              Modello
+              {t.model}
               <input
                 value={model}
-                placeholder="default CLI"
+                placeholder={t.defaultCliPlaceholder}
                 onChange={(event) => setModel(event.target.value)}
               />
             </label>
@@ -698,8 +709,8 @@ function App(): React.JSX.Element {
 
           <section className="history">
             <div className="section-row">
-              <span>Grok</span>
-              <button onClick={() => refreshSessions('grok')}>Aggiorna</button>
+              <span>{t.grokSection}</span>
+              <button onClick={() => refreshSessions('grok')}>{t.refresh}</button>
             </div>
             <div className="history-list">
               {visibleSessions.grok.map((session) => renderSession('grok', session))}
@@ -708,12 +719,12 @@ function App(): React.JSX.Element {
 
           <section className="history">
             <div className="section-row">
-              <span>Agent</span>
-              <button onClick={() => refreshSessions('agent')}>Aggiorna</button>
+              <span>{t.agentSection}</span>
+              <button onClick={() => refreshSessions('agent')}>{t.refresh}</button>
             </div>
             <div className="history-list">
               {visibleSessions.agent.length === 0 && (
-                <p className="empty-list">Nessuna sessione Agent assegnata.</p>
+                <p className="empty-list">{t.noAssignedAgentSessions}</p>
               )}
               {visibleSessions.agent.map((session) => renderSession('agent', session))}
             </div>
@@ -746,21 +757,25 @@ function App(): React.JSX.Element {
               </button>
             )}
             <div>
-              <p>{mode === 'grok' ? 'Grok CLI' : 'Agent CLI'}</p>
+              <p>{mode === 'grok' ? t.grokCli : t.agentCli}</p>
               <h1>
                 {selectedSession
-                  ? sessionTitle(selectedSession, prefs.aliases)
-                  : 'Nuova conversazione'}
+                  ? sessionTitle(
+                      selectedSession,
+                      prefs.aliases,
+                      t.sessionFallback(shortId(selectedSession.id))
+                    )
+                  : t.newConversation}
               </h1>
             </div>
           </div>
           <div className="topbar-actions">
             <button className="share-button" onClick={() => refreshAllSessions()}>
-              Sincronizza
+              {t.sync}
             </button>
             {activeConversation.activeRunId && (
               <button className="share-button danger" onClick={stopCurrent}>
-                Stop
+                {t.stop}
               </button>
             )}
           </div>
@@ -771,18 +786,15 @@ function App(): React.JSX.Element {
         <div className="conversation" ref={scrollerRef} onScroll={updateScrollBottomVisibility}>
           {activeConversation.messages.length === 0 && (
             <div className="empty-state">
-              <h2>{mode === 'grok' ? 'Parla con Grok' : 'Avvia Agent'}</h2>
-              <p>
-                Le risposte arrivano dal CLI locale, lanciato in background senza finestre terminale
-                visibili.
-              </p>
+              <h2>{mode === 'grok' ? t.talkToGrok : t.startAgent}</h2>
+              <p>{t.emptyStateDescription}</p>
             </div>
           )}
 
           {activeConversation.messages.map((message) => (
             <article key={message.id} className={`chat-message ${message.role}`}>
               <div className="message-author">
-                {message.role === 'user' ? 'Tu' : message.role === 'assistant' ? mode : 'Sistema'}
+                {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
               </div>
               <pre>{message.content}</pre>
               {renderMediaActions([
@@ -795,7 +807,7 @@ function App(): React.JSX.Element {
           {activeConversation.activeRunId && (
             <article className="chat-message assistant pending">
               <div className="message-author">{mode}</div>
-              <div className="typing-indicator" aria-label="Risposta in corso">
+              <div className="typing-indicator" aria-label={t.responseInProgress}>
                 <span />
                 <span />
                 <span />
@@ -808,7 +820,7 @@ function App(): React.JSX.Element {
           <button
             className="scroll-bottom-button"
             type="button"
-            title="Vai all'ultimo messaggio"
+            title={t.scrollToLatest}
             onClick={() => scrollToBottom('smooth')}
           >
             ↓
@@ -836,7 +848,7 @@ function App(): React.JSX.Element {
             <button
               className="attach-button"
               type="button"
-              title="Allega file"
+              title={t.attachFile}
               onClick={selectFiles}
             >
               +
@@ -844,7 +856,7 @@ function App(): React.JSX.Element {
             <input
               value={prompt}
               placeholder={
-                mode === 'grok' ? 'Chiedi qualsiasi cosa a Grok' : 'Dai un compito ad Agent'
+                mode === 'grok' ? t.askGrokPlaceholder : t.agentTaskPlaceholder
               }
               onChange={(event) => setPrompt(event.target.value)}
             />
@@ -852,22 +864,22 @@ function App(): React.JSX.Element {
               className="voice-button"
               disabled={(!prompt.trim() && attachedFiles.length === 0) || isSending}
             >
-              {isSending ? '...' : 'Invia'}
+              {isSending ? '...' : t.send}
             </button>
           </form>
         </div>
 
-        {isDraggingFile && <div className="drop-hint">Rilascia per allegare il path</div>}
+        {isDraggingFile && <div className="drop-hint">{t.dropHint}</div>}
       </section>
 
       {contextMenu && (
         <div className="session-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
-          <button onClick={() => renameSession(contextMenu.session)}>Rinomina</button>
+          <button onClick={() => renameSession(contextMenu.session)}>{t.rename}</button>
           {contextMenu.mode === 'grok' && (
-            <button onClick={() => moveToAgent(contextMenu.session)}>Aggiungi ad Agent</button>
+            <button onClick={() => moveToAgent(contextMenu.session)}>{t.addToAgent}</button>
           )}
           <button onClick={() => hideSession(contextMenu.mode, contextMenu.session)}>
-            Nascondi solo in app
+            {t.hideOnlyInApp}
           </button>
         </div>
       )}
@@ -883,7 +895,7 @@ function App(): React.JSX.Element {
             onClick={(event) => event.stopPropagation()}
           >
             <label>
-              Rinomina sessione
+              {t.renameSession}
               <input
                 value={renameTarget.value}
                 autoFocus
@@ -896,9 +908,9 @@ function App(): React.JSX.Element {
             </label>
             <div className="dialog-actions">
               <button type="button" onClick={() => setRenameTarget(undefined)}>
-                Annulla
+                {t.cancel}
               </button>
-              <button type="submit">Salva</button>
+              <button type="submit">{t.save}</button>
             </div>
           </form>
         </div>

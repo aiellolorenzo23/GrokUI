@@ -14,6 +14,7 @@ const api = {
   openMedia: (target: string) => ipcRenderer.invoke('app:open-media', target),
   readPreferences: () => ipcRenderer.invoke('app:read-preferences'),
   writePreferences: (value: unknown) => ipcRenderer.invoke('app:write-preferences', value),
+  getSystemLocale: () => ipcRenderer.invoke('app:get-system-locale'),
   selectFiles: () => ipcRenderer.invoke('app:select-files'),
   getFilePath: (file: File) => webUtils.getPathForFile(file),
   onCliStream: (callback: (event: CliStreamEvent) => void) => {

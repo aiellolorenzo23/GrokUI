@@ -22,6 +22,7 @@ type GrokUiApi = {
   openMedia: (target: string) => Promise<void>
   readPreferences: () => Promise<unknown | null>
   writePreferences: (value: unknown) => Promise<void>
+  getSystemLocale: () => Promise<string>
   selectFiles: () => Promise<SelectedFile[]>
   getFilePath: (file: File) => string
   onCliStream: (callback: (event: CliStreamEvent) => void) => () => void
