@@ -6,6 +6,7 @@ export type Dictionary = {
   cliError: string
   fileAttachmentsLabel: string
   hideMenu: string
+  showMenu: string
   modesLabel: string
   actionsLabel: string
   newChat: string
@@ -16,7 +17,9 @@ export type Dictionary = {
   defaultCliPlaceholder: string
   grokSection: string
   agentSection: string
+  conversationsSection: string
   refresh: string
+  noConversationsForMode: string
   noAssignedAgentSessions: string
   sync: string
   stop: string
@@ -58,6 +61,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     cliError: 'Errore CLI',
     fileAttachmentsLabel: 'File allegati',
     hideMenu: 'Nascondi menu',
+    showMenu: 'Mostra menu',
     modesLabel: 'Modalita',
     actionsLabel: 'Azioni',
     newChat: 'Nuova Chat',
@@ -68,7 +72,9 @@ const dictionaries: Record<Locale, Dictionary> = {
     defaultCliPlaceholder: 'default CLI',
     grokSection: 'Grok',
     agentSection: 'Agent',
+    conversationsSection: 'Conversazioni',
     refresh: 'Aggiorna',
+    noConversationsForMode: 'Nessuna conversazione per questa modalita.',
     noAssignedAgentSessions: 'Nessuna sessione Agent assegnata.',
     sync: 'Sincronizza',
     stop: 'Stop',
@@ -109,6 +115,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     cliError: 'CLI error',
     fileAttachmentsLabel: 'File attachments',
     hideMenu: 'Hide menu',
+    showMenu: 'Show menu',
     modesLabel: 'Modes',
     actionsLabel: 'Actions',
     newChat: 'New Chat',
@@ -119,7 +126,9 @@ const dictionaries: Record<Locale, Dictionary> = {
     defaultCliPlaceholder: 'default CLI',
     grokSection: 'Grok',
     agentSection: 'Agent',
+    conversationsSection: 'Conversations',
     refresh: 'Refresh',
+    noConversationsForMode: 'No conversations for this mode.',
     noAssignedAgentSessions: 'No Agent sessions assigned.',
     sync: 'Sync',
     stop: 'Stop',

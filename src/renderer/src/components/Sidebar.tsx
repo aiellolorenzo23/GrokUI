@@ -42,14 +42,12 @@ export function Sidebar({
   renderSession,
   onHide
 }: SidebarProps): React.JSX.Element | null {
-  if (isHidden) return null
-
   return (
-    <aside className="grok-sidebar">
+    <aside className={isHidden ? 'grok-sidebar hidden' : 'grok-sidebar'} aria-hidden={isHidden}>
       <div className="sidebar-head">
         <div className="brand-logo" style={logoStyle} aria-label="GrokUI" />
-        <button className="collapse-button" aria-label={t.hideMenu} title={t.hideMenu} onClick={onHide}>
-          &lt;&lt;
+        <button className="sidebar-toggle-button" aria-label={t.hideMenu} title={t.hideMenu} onClick={onHide}>
+          <span aria-hidden="true">‹</span>
         </button>
       </div>
 
@@ -109,20 +107,12 @@ export function Sidebar({
 
       <section className="history">
         <div className="section-row">
-          <span>{t.grokSection}</span>
-          <button onClick={() => void refreshSessions('grok')}>{t.refresh}</button>
-        </div>
-        <div className="history-list">{visibleSessions.grok.map((session) => renderSession('grok', session))}</div>
-      </section>
-
-      <section className="history">
-        <div className="section-row">
-          <span>{t.agentSection}</span>
-          <button onClick={() => void refreshSessions('agent')}>{t.refresh}</button>
+          <span>{t.conversationsSection}</span>
+          <button onClick={() => void refreshSessions(mode)}>{t.refresh}</button>
         </div>
         <div className="history-list">
-          {visibleSessions.agent.length === 0 && <p className="empty-list">{t.noAssignedAgentSessions}</p>}
-          {visibleSessions.agent.map((session) => renderSession('agent', session))}
+          {visibleSessions[mode].length === 0 && <p className="empty-list">{t.noConversationsForMode}</p>}
+          {visibleSessions[mode].map((session) => renderSession(mode, session))}
         </div>
       </section>
 

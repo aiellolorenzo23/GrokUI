@@ -524,8 +524,13 @@ export function ChatPanel({
       <header className="chat-topbar">
         <div className="topbar-title">
           {isSidebarHidden && (
-            <button className="show-menu-button" onClick={showSidebar}>
-              &gt;&gt;
+            <button
+              className="sidebar-toggle-button show-menu-button"
+              title={t.showMenu}
+              aria-label={t.showMenu}
+              onClick={showSidebar}
+            >
+              <span aria-hidden="true">›</span>
             </button>
           )}
           <div>

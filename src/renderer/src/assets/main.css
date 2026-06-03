@@ -3,6 +3,7 @@
 :root {
   --bg: #000000;
   --sidebar: #050505;
+  --sidebar-width: clamp(288px, 23vw, 320px);
   --surface: #080808;
   --hover: #171a1d;
   --active: #20252a;
@@ -50,24 +51,42 @@ button:disabled {
 
 .grok-shell {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   width: 100%;
   height: 100%;
   background: var(--bg);
+  transition: grid-template-columns 260ms ease;
 }
 
 .grok-shell.sidebar-collapsed {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 0 minmax(0, 1fr);
 }
 
 .grok-sidebar {
   display: flex;
   min-height: 0;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px 10px 10px;
+  gap: 16px;
+  padding: 16px 14px 12px;
   border-right: 1px solid var(--line);
   background: var(--sidebar);
+  overflow: hidden;
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 220ms ease,
+    transform 260ms ease,
+    padding 260ms ease,
+    border-color 220ms ease;
+}
+
+.grok-sidebar.hidden {
+  padding-right: 0;
+  padding-left: 0;
+  border-right-color: transparent;
+  opacity: 0;
+  transform: translateX(-18px);
+  pointer-events: none;
 }
 
 .sidebar-head,
@@ -82,7 +101,7 @@ button:disabled {
 
 .sidebar-head {
   justify-content: space-between;
-  padding: 2px 6px 4px;
+  padding: 4px 4px 6px;
 }
 
 .brand-logo {
@@ -93,7 +112,7 @@ button:disabled {
   -webkit-mask: var(--logo) left center / contain no-repeat;
 }
 
-.collapse-button,
+.sidebar-toggle-button,
 .icon-button,
 .primary-nav button,
 .section-row button,
@@ -104,33 +123,23 @@ button:disabled {
   background: transparent;
 }
 
-.collapse-button {
-  color: var(--faint);
-  font-size: 12px;
-}
-
-.collapse-button:hover,
-.show-menu-button:hover {
-  color: var(--text);
-  background: var(--hover);
-}
-
 .mode-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
+  gap: 5px;
+  padding: 5px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #070707;
 }
 
 .mode-tabs button {
-  min-height: 34px;
+  min-height: 38px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   color: var(--muted);
   background: transparent;
+  font-size: 13px;
   font-weight: 760;
 }
 
@@ -142,18 +151,18 @@ button:disabled {
 
 .primary-nav {
   display: grid;
-  gap: 5px;
+  gap: 6px;
 }
 
 .primary-nav button,
 .history-item {
   display: flex;
-  min-height: 30px;
+  min-height: 36px;
   align-items: center;
-  gap: 9px;
-  border-radius: 8px;
-  padding: 0 8px;
-  font-size: 12px;
+  gap: 10px;
+  border-radius: 10px;
+  padding: 0 10px;
+  font-size: 13px;
   font-weight: 650;
   text-align: left;
 }
@@ -173,18 +182,18 @@ button:disabled {
 
 .settings-block {
   display: grid;
-  gap: 8px;
-  padding: 8px;
+  gap: 10px;
+  padding: 10px;
   border: 1px solid var(--line-soft);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #060606;
 }
 
 .settings-block label {
   display: grid;
-  gap: 5px;
+  gap: 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 680;
 }
 
@@ -227,10 +236,10 @@ button:disabled {
 
 .settings-block input {
   min-width: 0;
-  height: 30px;
+  height: 36px;
   border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 0 8px;
+  border-radius: 9px;
+  padding: 0 10px;
   color: var(--text);
   background: #101113;
   outline: none;
@@ -240,30 +249,30 @@ button:disabled {
 .history {
   display: grid;
   min-height: 0;
-  gap: 6px;
+  gap: 8px;
 }
 
 .section-row {
   justify-content: space-between;
-  padding: 0 6px;
+  padding: 0 2px;
 }
 
 .section-row span {
   color: #ffffff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .section-row button {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .history-list {
   display: grid;
   min-height: 0;
-  max-height: 190px;
-  gap: 3px;
+  max-height: 220px;
+  gap: 5px;
   overflow: auto;
 }
 
@@ -275,8 +284,10 @@ button:disabled {
 
 .history-item {
   display: grid;
-  gap: 2px;
-  min-height: 43px;
+  gap: 3px;
+  min-height: 52px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .history-item.active {
@@ -291,19 +302,19 @@ button:disabled {
 }
 
 .history-item strong {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
 .history-item span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .account {
   gap: 8px;
   margin-top: auto;
-  padding: 8px 6px;
+  padding: 10px 4px 6px;
 }
 
 .avatar {
@@ -328,12 +339,12 @@ button:disabled {
 }
 
 .account strong {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .account span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .chat-surface {
@@ -358,13 +369,36 @@ button:disabled {
   gap: 12px;
 }
 
-.show-menu-button {
+.sidebar-toggle-button {
   width: 34px;
   height: 34px;
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.02);
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.sidebar-toggle-button span {
+  display: block;
+  font-size: 22px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.sidebar-toggle-button:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--hover);
+  transform: translateY(-1px);
+}
+
+.sidebar-toggle-button:active {
+  transform: translateY(0);
 }
 
 .chat-topbar p,
