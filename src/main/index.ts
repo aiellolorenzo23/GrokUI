@@ -4,7 +4,7 @@ import { join } from 'path'
 import { fileURLToPath } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import type { CliCapabilities } from '../shared/types'
-import { exportSession, listSessionMedia, listSessions, startCliRun, stopCliRun } from './cli'
+import { exportSession, listModels, listSessionMedia, listSessions, startCliRun, stopCliRun } from './cli'
 import iconIco from '../../build/icon.ico?asset'
 import icon from '../../resources/icon.png?asset'
 
@@ -180,6 +180,7 @@ app.whenReady().then(() => {
   createWindow()
 
   ipcMain.handle('cli:list-sessions', (_, mode, cwd, limit) => listSessions(mode, cwd, limit))
+  ipcMain.handle('cli:list-models', (_, cwd) => listModels(cwd))
   ipcMain.handle('cli:export-session', (_, mode, cwd, sessionId) =>
     exportSession(mode, cwd, sessionId)
   )

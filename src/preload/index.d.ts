@@ -2,6 +2,7 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   CliCapabilities,
   CliMode,
+  CliModelsResponse,
   CliRunRequest,
   CliRunStarted,
   CliSession,
@@ -21,6 +22,7 @@ type GrokUiApi = {
     cliCapabilities: CliCapabilities
   }
   listSessions: (mode: CliMode, cwd: string, limit?: number) => Promise<CliSession[]>
+  listModels: (cwd: string) => Promise<CliModelsResponse>
   exportSession: (mode: CliMode, cwd: string, sessionId: string) => Promise<string>
   listSessionMedia: (sessionId: string) => Promise<string[]>
   startCli: (request: CliRunRequest) => Promise<CliRunStarted>

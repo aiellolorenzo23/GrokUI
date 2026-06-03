@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { CliCapabilities, CliMode, CliRunRequest, CliStreamEvent } from '../shared/types'
+import type {
+  CliCapabilities,
+  CliMode,
+  CliModelsResponse,
+  CliRunRequest,
+  CliStreamEvent
+} from '../shared/types'
 
 const bootstrap = {
   systemLocale: ipcRenderer.sendSync('app:get-system-locale-sync') as string,
@@ -13,6 +19,7 @@ const api = {
   bootstrap,
   listSessions: (mode: CliMode, cwd: string, limit?: number) =>
     ipcRenderer.invoke('cli:list-sessions', mode, cwd, limit),
+  listModels: (cwd: string): Promise<CliModelsResponse> => ipcRenderer.invoke('cli:list-models', cwd),
   exportSession: (mode: CliMode, cwd: string, sessionId: string) =>
     ipcRenderer.invoke('cli:export-session', mode, cwd, sessionId),
   listSessionMedia: (sessionId: string) => ipcRenderer.invoke('cli:list-session-media', sessionId),

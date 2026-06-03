@@ -22,6 +22,7 @@ export type SessionPrefs = {
   aliases: Record<string, string>
   agentSessionIds: string[]
   assistantViewMode: AssistantViewMode
+  selectedModel: string
 }
 
 export type ContextMenuState = {
@@ -52,6 +53,7 @@ export function getDefaultPrefs(): SessionPrefs {
     hidden: { grok: [], agent: [] },
     aliases: {},
     agentSessionIds: [],
-    assistantViewMode: 'grokui'
+    assistantViewMode: 'grokui',
+    selectedModel: ''
   }
 }

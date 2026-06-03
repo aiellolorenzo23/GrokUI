@@ -34,6 +34,16 @@ export type CliCapabilities = {
   contextUsageSupport: CliContextUsageSupport
 }
 
+export type CliModelInfo = {
+  id: string
+  isDefault: boolean
+}
+
+export type CliModelsResponse = {
+  defaultModel?: string
+  models: CliModelInfo[]
+}
+
 export type CliSettings = {
   cwd: string
   model: string

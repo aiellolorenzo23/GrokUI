@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { CliMode, CliSession } from '../../../shared/types'
+import type { CliMode, CliModelInfo, CliSession } from '../../../shared/types'
 import type { AssistantViewMode } from '../appTypes'
 import type { Dictionary } from '../i18n'
 
@@ -16,6 +16,8 @@ type SidebarProps = {
   setCwd: (cwd: string) => void
   model: string
   setModel: (model: string) => void
+  availableModels: CliModelInfo[]
+  isLoadingModels: boolean
   assistantViewMode: AssistantViewMode
   setAssistantViewMode: (mode: AssistantViewMode) => void
   visibleSessions: Record<CliMode, CliSession[]>
@@ -36,6 +38,8 @@ export function Sidebar({
   setCwd,
   model,
   setModel,
+  availableModels,
+  isLoadingModels,
   assistantViewMode,
   setAssistantViewMode,
   visibleSessions,
@@ -83,11 +87,19 @@ export function Sidebar({
         </label>
         <label>
           {t.model}
-          <input
+          <select
             value={model}
-            placeholder={t.defaultCliPlaceholder}
+            disabled={isLoadingModels}
             onChange={(event) => setModel(event.target.value)}
-          />
+          >
+            <option value="">{isLoadingModels ? t.loadingModels : t.defaultCliPlaceholder}</option>
+            {availableModels.map((availableModel) => (
+              <option key={availableModel.id} value={availableModel.id}>
+                {availableModel.id}
+                {availableModel.isDefault ? ` ${t.defaultModelSuffix}` : ''}
+              </option>
+            ))}
+          </select>
         </label>
         <div className="settings-toggle">
           <span>{t.assistantStyle}</span>

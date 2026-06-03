@@ -31,7 +31,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -237,7 +238,8 @@ button:disabled {
   background: var(--active);
 }
 
-.settings-block input {
+.settings-block input,
+.settings-block select {
   min-width: 0;
   height: 36px;
   border: 1px solid var(--line);
@@ -247,6 +249,10 @@ button:disabled {
   background: #101113;
   outline: none;
   user-select: text;
+}
+
+.settings-block select {
+  user-select: none;
 }
 
 .history {

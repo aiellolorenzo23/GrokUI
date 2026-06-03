@@ -13,6 +13,7 @@ import type {
   CliCapabilities,
   CliContextUsage,
   CliMode,
+  CliModelInfo,
   CliSession,
   CliStreamEvent
 } from '../../shared/types'
@@ -86,6 +87,8 @@ function App(): React.JSX.Element {
   const [mode, setMode] = useState<CliMode>('grok')
   const [cwd, setCwd] = useState(() => window.api.bootstrap.homeDir || '')
   const [model, setModel] = useState('')
+  const [availableModels, setAvailableModels] = useState<CliModelInfo[]>([])
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [sessions, setSessions] = useState<Record<CliMode, CliSession[]>>({ grok: [], agent: [] })
   const [conversations, setConversations] = useState<Record<string, ConversationState>>(() => ({
@@ -119,6 +122,10 @@ function App(): React.JSX.Element {
     localeRef.current = locale
   }, [locale])
 
+  useEffect(() => {
+    setModel((current) => (current === prefs.selectedModel ? current : prefs.selectedModel))
+  }, [prefs.selectedModel])
+
   const visibleSessions = useMemo(
     () => ({
       grok: sessions.grok.filter((session) => !prefs.hidden.grok.includes(session.id)),
@@ -147,6 +154,31 @@ function App(): React.JSX.Element {
       }
     )
   }, [])
+
+  useEffect(() => {
+    if (!cwd) return
+
+    let cancelled = false
+    setIsLoadingModels(true)
+
+    void window.api
+      .listModels(cwd)
+      .then((response) => {
+        if (cancelled) return
+        setAvailableModels(response.models)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setAvailableModels([])
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingModels(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [cwd])
 
   const refreshSessions = useCallback(
     async (targetMode: CliMode = mode): Promise<void> => {
@@ -604,6 +636,11 @@ function App(): React.JSX.Element {
     ? sessionTitle(selectedSession, prefs.aliases, t.sessionFallback(shortId(selectedSession.id)))
     : t.newConversation
 
+  const setSelectedModel = (nextModel: string): void => {
+    setModel(nextModel)
+    setPrefs((current) => ({ ...current, selectedModel: nextModel }))
+  }
+
   const setAssistantViewMode = (assistantViewMode: AssistantViewMode): void => {
     setPrefs((current) => ({ ...current, assistantViewMode }))
   }
@@ -622,7 +659,9 @@ function App(): React.JSX.Element {
         cwd={cwd}
         setCwd={setCwd}
         model={model}
-        setModel={setModel}
+        setModel={setSelectedModel}
+        availableModels={availableModels}
+        isLoadingModels={isLoadingModels}
         assistantViewMode={prefs.assistantViewMode}
         setAssistantViewMode={setAssistantViewMode}
         visibleSessions={visibleSessions}

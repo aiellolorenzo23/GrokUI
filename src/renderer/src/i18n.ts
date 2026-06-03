@@ -16,6 +16,8 @@ export type Dictionary = {
   workingDirectory: string
   model: string
   defaultCliPlaceholder: string
+  loadingModels: string
+  defaultModelSuffix: string
   grokSection: string
   agentSection: string
   conversationsSection: string
@@ -81,6 +83,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     workingDirectory: 'Working directory',
     model: 'Modello',
     defaultCliPlaceholder: 'default CLI',
+    loadingModels: 'Carico modelli',
+    defaultModelSuffix: '(default)',
     grokSection: 'Grok',
     agentSection: 'Agent',
     conversationsSection: 'Conversazioni',
@@ -146,6 +150,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     workingDirectory: 'Working directory',
     model: 'Model',
     defaultCliPlaceholder: 'default CLI',
+    loadingModels: 'Loading models',
+    defaultModelSuffix: '(default)',
     grokSection: 'Grok',
     agentSection: 'Agent',
     conversationsSection: 'Conversations',

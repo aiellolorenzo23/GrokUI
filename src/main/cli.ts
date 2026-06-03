@@ -8,6 +8,7 @@ import { join } from 'path'
 import type {
   CliContextUsage,
   CliContextUsageEntry,
+  CliModelsResponse,
   CliMode,
   CliRunRequest,
   CliRunStarted,
@@ -332,6 +333,34 @@ export async function exportSession(
   sessionId: string
 ): Promise<string> {
   return runCli(['export', sessionId], cwd, mode)
+}
+
+export async function listModels(cwd: string): Promise<CliModelsResponse> {
+  const output = await runCli(['models'], cwd, 'grok')
+  const lines = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const defaultLine = lines.find((line) => /^Default model:/i.test(line))
+  const defaultModel = defaultLine?.replace(/^Default model:\s*/i, '').trim() || undefined
+  const modelsStartIndex = lines.findIndex((line) => /^Available models:/i.test(line))
+  const modelLines = modelsStartIndex >= 0 ? lines.slice(modelsStartIndex + 1) : []
+
+  const models = modelLines
+    .map((line) => {
+      const match = line.match(/^([*-])\s+(.+?)(?:\s+\(default\))?$/i)
+      if (!match) return undefined
+      const id = match[2].trim()
+      return {
+        id,
+        isDefault:
+          match[1] === '*' || /\(default\)\s*$/i.test(line) || (defaultModel ? id === defaultModel : false)
+      }
+    })
+    .filter((model): model is NonNullable<typeof model> => Boolean(model))
+
+  return { defaultModel, models }
 }
 
 async function findSessionDirectory(

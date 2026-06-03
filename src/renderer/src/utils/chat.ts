@@ -37,7 +37,9 @@ export function normalizePrefs(value: unknown, defaults: SessionPrefs): SessionP
     assistantViewMode:
       record.assistantViewMode === 'cli' || record.assistantViewMode === 'grokui'
         ? record.assistantViewMode
-        : defaults.assistantViewMode
+        : defaults.assistantViewMode,
+    selectedModel:
+      typeof record.selectedModel === 'string' ? record.selectedModel : defaults.selectedModel
   }
 }
 
