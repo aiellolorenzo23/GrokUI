@@ -47,6 +47,8 @@ export type Dictionary = {
   copyTable: string
   wrapCode: string
   unwrapCode: string
+  expandCode: (lineCount: number) => string
+  collapseCode: string
   copied: string
   attachFile: string
   askGrokPlaceholder: string
@@ -112,6 +114,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     copyTable: 'Copia tabella',
     wrapCode: 'A capo',
     unwrapCode: 'No a capo',
+    expandCode: (lineCount) => `Espandi (${lineCount} righe)`,
+    collapseCode: 'Comprimi',
     copied: 'Copiato',
     attachFile: 'Allega file',
     askGrokPlaceholder: 'Chiedi qualsiasi cosa a Grok',
@@ -175,6 +179,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     copyTable: 'Copy table',
     wrapCode: 'Wrap',
     unwrapCode: 'No wrap',
+    expandCode: (lineCount) => `Expand (${lineCount} lines)`,
+    collapseCode: 'Collapse',
     copied: 'Copied',
     attachFile: 'Attach file',
     askGrokPlaceholder: 'Ask Grok anything',

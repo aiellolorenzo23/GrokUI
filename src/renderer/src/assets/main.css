@@ -997,12 +997,36 @@ button:disabled {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.message-code-footer {
+  display: flex;
+  justify-content: center;
+  padding: 0 0 12px;
+  background: linear-gradient(180deg, rgba(10, 13, 17, 0), #0a0d11 32%);
+}
+
 .shiki-shell {
   overflow-x: auto;
 }
 
 .shiki-shell.wrapped {
   overflow-x: hidden;
+}
+
+.shiki-shell.collapsed {
+  position: relative;
+  max-height: 420px;
+  overflow: hidden;
+}
+
+.shiki-shell.collapsed::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 84px;
+  background: linear-gradient(180deg, rgba(10, 13, 17, 0), rgba(10, 13, 17, 0.96));
+  content: '';
+  pointer-events: none;
 }
 
 .shiki-shell .shiki {

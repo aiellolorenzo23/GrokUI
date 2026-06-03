@@ -266,8 +266,11 @@ function CodeBlock({
   const [didCopy, setDidCopy] = useState(false)
   const [highlightedHtml, setHighlightedHtml] = useState<string>()
   const [wrapLines, setWrapLines] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const languageLabel = getHighlightLanguageLabel(language, code)
   const plainHtml = useMemo(() => getPlainCodeHtml(code), [code])
+  const lineCount = useMemo(() => code.split('\n').length, [code])
+  const isLongCodeBlock = lineCount > 22 || code.length > 2600
   const blockKey = `${assistantViewMode}::${language}::${code}`
   const html =
     highlightedHtml && highlightedHtml.startsWith(`<!--${blockKey}-->`)
@@ -323,9 +326,24 @@ function CodeBlock({
         </div>
       </div>
       <div
-        className={wrapLines ? 'shiki-shell wrapped' : 'shiki-shell'}
+        className={
+          wrapLines
+            ? `shiki-shell wrapped${isLongCodeBlock && !isExpanded ? ' collapsed' : ''}`
+            : `shiki-shell${isLongCodeBlock && !isExpanded ? ' collapsed' : ''}`
+        }
         dangerouslySetInnerHTML={{ __html: html }}
       />
+      {isLongCodeBlock && (
+        <div className="message-code-footer">
+          <button
+            className="message-code-copy"
+            type="button"
+            onClick={() => setIsExpanded((value) => !value)}
+          >
+            {isExpanded ? t.collapseCode : t.expandCode(lineCount)}
+          </button>
+        </div>
+      )}
     </section>
   )
 }

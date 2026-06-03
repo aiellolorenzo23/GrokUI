@@ -65,21 +65,31 @@ describe('transcriptToMessages', () => {
 })
 
 describe('extractMediaLinks', () => {
-  it('extracts generic local and remote file paths, not only images and videos', () => {
+  it('extracts generic local file paths, not only images and videos', () => {
     const text = [
       'Created files:',
       'C:\\Users\\lollo\\w-la-figa-fluo.html',
       'C:\\Users\\lollo\\notes final.txt',
-      'file:///C:/Users/lollo/Documents/output.pdf',
-      'https://example.com/archive/report.json?download=1'
+      'file:///C:/Users/lollo/Documents/output.pdf'
     ].join('\n')
 
     expect(extractMediaLinks(text)).toEqual([
       'C:\\Users\\lollo\\w-la-figa-fluo.html',
       'C:\\Users\\lollo\\notes final.txt',
-      'file:///C:/Users/lollo/Documents/output.pdf',
-      'https://example.com/archive/report.json?download=1'
+      'file:///C:/Users/lollo/Documents/output.pdf'
     ])
+  })
+
+  it('does not treat web urls as local files', () => {
+    const text = [
+      'Link font:',
+      'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap',
+      'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js',
+      'https://example.com/archive/report.json?download=1',
+      'https://example.com'
+    ].join('\n')
+
+    expect(extractMediaLinks(text)).toEqual([])
   })
 })
 
