@@ -8,7 +8,13 @@ import {
   useRef,
   useState
 } from 'react'
-import type { CliMode, CliSession, CliStreamEvent } from '../../shared/types'
+import type {
+  CliCapabilities,
+  CliContextUsage,
+  CliMode,
+  CliSession,
+  CliStreamEvent
+} from '../../shared/types'
 import grokLogo from '../../../resources/logo.svg'
 import { ChatPanel } from './components/ChatPanel'
 import { RenameDialog } from './components/RenameDialog'
@@ -52,6 +58,7 @@ function App(): React.JSX.Element {
   const [locale, setLocale] = useState(
     () => window.api.bootstrap.systemLocale || navigator.language || 'en'
   )
+  const [cliCapabilities] = useState<CliCapabilities>(() => window.api.bootstrap.cliCapabilities)
   const [mode, setMode] = useState<CliMode>('grok')
   const [cwd, setCwd] = useState(() => window.api.bootstrap.homeDir || '')
   const [model, setModel] = useState('')
@@ -220,6 +227,17 @@ function App(): React.JSX.Element {
         const data = event.data as Record<string, unknown> | undefined
         const sessionId = typeof data?.sessionId === 'string' ? data.sessionId : undefined
 
+        if (data?.type === 'context-usage') {
+          setConversations((current) => ({
+            ...current,
+            [event.mode]: {
+              ...current[event.mode],
+              contextUsage: data as unknown as CliContextUsage
+            }
+          }))
+          return
+        }
+
         if (data?.type === 'end' && sessionId) {
           setConversations((current) => {
             const target = current[event.mode]
@@ -322,7 +340,8 @@ function App(): React.JSX.Element {
         [targetMode]: {
           messages: transcriptToMessages(transcript, media),
           activeSessionId: session.id,
-          activeRunId: undefined
+          activeRunId: undefined,
+          contextUsage: undefined
         }
       }))
       sessionMediaRef.current = { ...sessionMediaRef.current, [session.id]: media }
@@ -334,7 +353,7 @@ function App(): React.JSX.Element {
   const startNew = (): void => {
     setConversations((current) => ({
       ...current,
-      [mode]: { messages: [] }
+      [mode]: { messages: [], activeSessionId: undefined, activeRunId: undefined, contextUsage: undefined }
     }))
     setPrompt('')
   }
@@ -536,6 +555,8 @@ function App(): React.JSX.Element {
         showSidebar={() => setIsSidebarHidden(false)}
         selectedSessionTitle={selectedSessionTitle}
         activeConversation={activeConversation}
+        contextUsage={activeConversation.contextUsage}
+        contextUsageSupport={cliCapabilities.contextUsageSupport}
         error={error}
         scrollerRef={scrollerRef}
         updateScrollBottomVisibility={updateScrollBottomVisibility}

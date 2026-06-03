@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import type { CliCapabilities } from '../shared/types'
 import { exportSession, listSessionMedia, listSessions, startCliRun, stopCliRun } from './cli'
 import iconIco from '../../build/icon.ico?asset'
 import icon from '../../resources/icon.png?asset'
@@ -69,6 +70,16 @@ async function openMediaTarget(target: string): Promise<void> {
   await shell.openPath(target)
 }
 
+async function openContainingFolder(target: string): Promise<void> {
+  if (/^https?:\/\//i.test(target)) {
+    await shell.openExternal(target)
+    return
+  }
+
+  const resolvedTarget = /^file:\/\//i.test(target) ? fileURLToPath(target) : target
+  shell.showItemInFolder(resolvedTarget)
+}
+
 function mediaTypeForPath(target: string): 'image' | 'video' | 'file' {
   if (/\.(png|jpe?g|webp|gif)$/i.test(target)) return 'image'
   if (/\.(mp4|webm)$/i.test(target)) return 'video'
@@ -110,6 +121,14 @@ function getSystemLocale(): string {
 
 function getHomeDir(): string {
   return app.getPath('home')
+}
+
+function getCliCapabilities(): CliCapabilities {
+  // The current GrokUI integration uses headless `--output-format streaming-json`.
+  // In this mode the local CLI does not expose the interactive Context/token panel.
+  return {
+    contextUsageSupport: 'unsupported'
+  }
 }
 
 function contentTypeForPath(target: string): string {
@@ -172,6 +191,7 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('cli:stop', (_, runId) => stopCliRun(runId))
   ipcMain.handle('app:open-media', (_, target) => openMediaTarget(target))
+  ipcMain.handle('app:open-containing-folder', (_, target) => openContainingFolder(target))
   ipcMain.handle('app:read-preferences', () => readPreferences())
   ipcMain.handle('app:write-preferences', (_, value) => writePreferences(value))
   ipcMain.handle('app:get-system-locale', () => getSystemLocale())
@@ -181,6 +201,9 @@ app.whenReady().then(() => {
   })
   ipcMain.on('app:get-home-dir-sync', (event) => {
     event.returnValue = getHomeDir()
+  })
+  ipcMain.on('app:get-cli-capabilities-sync', (event) => {
+    event.returnValue = getCliCapabilities()
   })
   ipcMain.handle('app:select-files', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)

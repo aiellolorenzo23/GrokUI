@@ -433,6 +433,176 @@ button:disabled {
   gap: 8px;
 }
 
+.context-usage-anchor {
+  position: relative;
+}
+
+.context-usage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #f3f3f3;
+  background: #070707;
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+}
+
+.context-usage-badge span:first-child,
+.context-usage-badge span:last-child {
+  min-width: 24px;
+  text-align: center;
+}
+
+.context-usage-badge:hover,
+.context-usage-anchor:focus-within .context-usage-badge {
+  background: var(--hover);
+}
+
+.context-usage-divider {
+  color: var(--faint);
+}
+
+.context-usage-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 12;
+  display: grid;
+  width: min(360px, calc(100vw - 40px));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(10, 11, 13, 0.96);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.56);
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+  backdrop-filter: blur(16px);
+}
+
+.context-usage-popover::before {
+  position: absolute;
+  top: -6px;
+  right: 18px;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 11, 13, 0.96);
+  content: '';
+  transform: rotate(45deg);
+}
+
+.context-usage-anchor:hover .context-usage-popover,
+.context-usage-anchor:focus-within .context-usage-popover {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.context-usage-popover-header {
+  display: grid;
+  gap: 3px;
+}
+
+.context-usage-popover-header strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.context-usage-popover-header span,
+.context-usage-model,
+.context-usage-compact-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.context-usage-model {
+  margin-top: -4px;
+}
+
+.context-usage-meter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.context-usage-meter {
+  position: relative;
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: #171a1d;
+}
+
+.context-usage-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f4c15d, #f07f4f);
+}
+
+.context-usage-meter-row.empty .context-usage-meter span {
+  background: linear-gradient(90deg, #4e5359, #3b4045);
+}
+
+.context-usage-meter-row strong {
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.context-usage-breakdown {
+  display: grid;
+  gap: 8px;
+}
+
+.context-usage-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) auto auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.context-usage-breakdown-row span {
+  white-space: nowrap;
+}
+
+.context-usage-breakdown-row span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+.context-usage-tone {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 760;
+}
+
+.context-usage-tone.used {
+  color: #f2f2f2;
+}
+
+.context-usage-tone.tools {
+  color: #f4c15d;
+}
+
+.context-usage-tone.free {
+  color: #88d7a6;
+}
+
 .share-button {
   height: 32px;
   border: 1px solid var(--line);
@@ -970,6 +1140,12 @@ button:disabled {
   background: rgba(255, 255, 255, 0.02);
 }
 
+.media-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .media-action {
   display: inline-flex;
   min-width: 152px;
@@ -983,6 +1159,12 @@ button:disabled {
   color: var(--text);
   background: #070707;
   font-weight: 720;
+}
+
+.media-action.icon-only {
+  min-width: 38px;
+  width: 38px;
+  padding: 0;
 }
 
 .media-action-icon {
@@ -1003,6 +1185,10 @@ button:disabled {
 
 .media-action-icon.video {
   transform: translateX(1px);
+}
+
+.media-action-icon.folder {
+  color: #f4c15d;
 }
 
 .media-action:hover {

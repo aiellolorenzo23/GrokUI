@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  CliCapabilities,
   CliMode,
   CliRunRequest,
   CliRunStarted,
@@ -17,6 +18,7 @@ type GrokUiApi = {
   bootstrap: {
     systemLocale: string
     homeDir: string
+    cliCapabilities: CliCapabilities
   }
   listSessions: (mode: CliMode, cwd: string, limit?: number) => Promise<CliSession[]>
   exportSession: (mode: CliMode, cwd: string, sessionId: string) => Promise<string>
@@ -24,6 +26,7 @@ type GrokUiApi = {
   startCli: (request: CliRunRequest) => Promise<CliRunStarted>
   stopCli: (runId: string) => Promise<boolean>
   openMedia: (target: string) => Promise<void>
+  openContainingFolder: (target: string) => Promise<void>
   readPreferences: () => Promise<unknown | null>
   writePreferences: (value: unknown) => Promise<void>
   getSystemLocale: () => Promise<string>

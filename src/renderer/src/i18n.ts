@@ -3,6 +3,7 @@ export type Locale = 'it' | 'en'
 export type Dictionary = {
   sessionFallback: (id: string) => string
   viewMedia: (mediaType: 'image' | 'video' | 'file') => string
+  openContainingFolder: string
   cliError: string
   fileAttachmentsLabel: string
   hideMenu: string
@@ -23,6 +24,9 @@ export type Dictionary = {
   noAssignedAgentSessions: string
   sync: string
   stop: string
+  context: string
+  contextUnavailable: string
+  contextUnavailableHint: string
   grokCli: string
   agentCli: string
   grokModeDescription: string
@@ -62,6 +66,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     sessionFallback: (id) => `(sessione ${id})`,
     viewMedia: (mediaType) =>
       mediaType === 'video' ? 'Apri video' : mediaType === 'file' ? 'Apri file' : 'Apri immagine',
+    openContainingFolder: 'Apri cartella',
     cliError: 'Errore CLI',
     fileAttachmentsLabel: 'File allegati',
     hideMenu: 'Nascondi menu',
@@ -82,6 +87,10 @@ const dictionaries: Record<Locale, Dictionary> = {
     noAssignedAgentSessions: 'Nessuna sessione Agent assegnata.',
     sync: 'Sincronizza',
     stop: 'Stop',
+    context: 'Contesto',
+    contextUnavailable: 'Dati contesto non disponibili',
+    contextUnavailableHint:
+      'La CLI locale usata da GrokUI non espone sempre queste metriche nel flusso streaming, quindi il badge puo restare vuoto anche durante la risposta.',
     grokCli: 'Grok CLI',
     agentCli: 'Agent CLI',
     grokModeDescription: 'Chat diretta con Grok usando la CLI locale.',
@@ -120,6 +129,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     sessionFallback: (id) => `(session ${id})`,
     viewMedia: (mediaType) =>
       mediaType === 'video' ? 'Open video' : mediaType === 'file' ? 'Open file' : 'Open image',
+    openContainingFolder: 'Open folder',
     cliError: 'CLI error',
     fileAttachmentsLabel: 'File attachments',
     hideMenu: 'Hide menu',
@@ -140,6 +150,10 @@ const dictionaries: Record<Locale, Dictionary> = {
     noAssignedAgentSessions: 'No Agent sessions assigned.',
     sync: 'Sync',
     stop: 'Stop',
+    context: 'Context',
+    contextUnavailable: 'Context data unavailable',
+    contextUnavailableHint:
+      'The local CLI used by GrokUI does not always expose these metrics in the streaming output, so the badge can stay empty even while a response is running.',
     grokCli: 'Grok CLI',
     agentCli: 'Agent CLI',
     grokModeDescription: 'Direct chat with Grok using the local CLI.',

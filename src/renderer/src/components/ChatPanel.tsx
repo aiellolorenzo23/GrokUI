@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent, type FormEvent, type RefObject } from 'react'
-import type { CliMode } from '../../../shared/types'
+import type { CliContextUsage, CliContextUsageSupport, CliMode } from '../../../shared/types'
 import type { AssistantViewMode, AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
 import {
@@ -262,34 +262,51 @@ function MessageMediaGallery({
             )}
           </button>
           <div className="message-media-card-actions">
-            <button
-              type="button"
-              className="media-action"
-              onClick={() => void window.api.openMedia(item.link)}
-            >
-              <span className={`media-action-icon ${item.mediaType}`} aria-hidden="true">
-                {item.mediaType === 'video' ? (
+            <div className="media-action-group">
+              <button
+                type="button"
+                className="media-action icon-only"
+                title={t.openContainingFolder}
+                onClick={() => void window.api.openContainingFolder(item.link)}
+              >
+                <span className="media-action-icon folder" aria-hidden="true">
                   <svg viewBox="0 0 16 16" focusable="false">
                     <path
-                      d="M3.2 2h8.6c.45 0 .84.3.95.73l.52 2.02H2.68l-.43-1.66A.9.9 0 0 1 3.2 2Zm10.2 3.75v6.95A1.3 1.3 0 0 1 12.1 14H3.9a1.3 1.3 0 0 1-1.3-1.3V5.75h10.8ZM6.4 8.05v2.6c0 .3.33.48.58.32l2.1-1.3a.38.38 0 0 0 0-.64l-2.1-1.3a.38.38 0 0 0-.58.32ZM4.05 2.9l1.55 1.15h1.52L5.54 2.9H4.05Zm3.67 0 1.56 1.15h1.51L9.21 2.9H7.72Z"
+                      d="M1.75 4.25A1.25 1.25 0 0 1 3 3h3.1c.32 0 .62.13.84.36l.86.89h5.2a1.25 1.25 0 0 1 1.25 1.25v5.75A1.75 1.75 0 0 1 12.5 13H3.5a1.75 1.75 0 0 1-1.75-1.75V4.25Zm1.5-.25a.25.25 0 0 0-.25.25v.5h9.96a2.2 2.2 0 0 1 .29.02.25.25 0 0 0-.25-.27H7.38l-1.15-1.19a.18.18 0 0 0-.13-.06H3.25Zm10 1.75H2.75v5.5c0 .41.34.75.75.75h9c.41 0 .75-.34.75-.75v-5.5Z"
                       fill="currentColor"
                     />
                   </svg>
-                ) : item.mediaType === 'image' ? (
-                  <svg viewBox="0 0 16 16" focusable="false">
-                    <path
-                      d="M2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9A1.5 1.5 0 0 1 2.5 2Zm0 1a.5.5 0 0 0-.5.5v6.336l.782-.782a1 1 0 0 1 1.414 0L5.5 10.858l3.764-3.764a1 1 0 0 1 1.415 0L14 10.414V3.5a.5.5 0 0 0-.5-.5Zm7.25 2a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 16 16" focusable="false">
-                    <circle cx="8" cy="8" r="2" fill="currentColor" />
-                  </svg>
-                )}
-              </span>
-              <span>{t.viewMedia(item.mediaType)}</span>
-            </button>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="media-action"
+                onClick={() => void window.api.openMedia(item.link)}
+              >
+                <span className={`media-action-icon ${item.mediaType}`} aria-hidden="true">
+                  {item.mediaType === 'video' ? (
+                    <svg viewBox="0 0 16 16" focusable="false">
+                      <path
+                        d="M3.2 2h8.6c.45 0 .84.3.95.73l.52 2.02H2.68l-.43-1.66A.9.9 0 0 1 3.2 2Zm10.2 3.75v6.95A1.3 1.3 0 0 1 12.1 14H3.9a1.3 1.3 0 0 1-1.3-1.3V5.75h10.8ZM6.4 8.05v2.6c0 .3.33.48.58.32l2.1-1.3a.38.38 0 0 0 0-.64l-2.1-1.3a.38.38 0 0 0-.58.32ZM4.05 2.9l1.55 1.15h1.52L5.54 2.9H4.05Zm3.67 0 1.56 1.15h1.51L9.21 2.9H7.72Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  ) : item.mediaType === 'image' ? (
+                    <svg viewBox="0 0 16 16" focusable="false">
+                      <path
+                        d="M2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9A1.5 1.5 0 0 1 2.5 2Zm0 1a.5.5 0 0 0-.5.5v6.336l.782-.782a1 1 0 0 1 1.414 0L5.5 10.858l3.764-3.764a1 1 0 0 1 1.415 0L14 10.414V3.5a.5.5 0 0 0-.5-.5Zm7.25 2a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 16 16" focusable="false">
+                      <circle cx="8" cy="8" r="2" fill="currentColor" />
+                    </svg>
+                  )}
+                </span>
+                <span>{t.viewMedia(item.mediaType)}</span>
+              </button>
+            </div>
           </div>
         </div>
       ))}
@@ -379,6 +396,83 @@ function MessageContent({
   )
 }
 
+function ContextUsageBadge({
+  contextUsage,
+  contextUsageSupport,
+  t
+}: {
+  contextUsage?: CliContextUsage
+  contextUsageSupport: CliContextUsageSupport
+  t: Dictionary
+}): React.JSX.Element {
+  const boundedPercent = Math.max(0, Math.min(contextUsage?.percentage ?? 0, 100))
+  const hasUsage = Boolean(contextUsage)
+  const breakdown = contextUsage?.breakdown ?? []
+  const isUnavailable = !hasUsage && contextUsageSupport !== 'unsupported'
+  const badgePrimaryLabel = hasUsage ? contextUsage?.usedTokens : 'N/A'
+  const badgeSecondaryLabel = hasUsage ? contextUsage?.totalTokens : t.context
+
+  return (
+    <div className="context-usage-anchor">
+      <button
+        type="button"
+        className="context-usage-badge"
+        aria-label={
+          hasUsage
+            ? `${t.context} ${contextUsage?.usedTokens} / ${contextUsage?.totalTokens} tokens (${contextUsage?.percentageLabel})`
+            : t.contextUnavailable
+        }
+      >
+        <span>{badgePrimaryLabel}</span>
+        <span className="context-usage-divider">/</span>
+        <span>{badgeSecondaryLabel}</span>
+      </button>
+
+      <div className="context-usage-popover" role="tooltip">
+        <div className="context-usage-popover-header">
+          <strong>{t.context}</strong>
+          {hasUsage ? (
+            <span>
+              {contextUsage?.usedTokens} / {contextUsage?.totalTokens} tokens (
+              {contextUsage?.percentageLabel})
+            </span>
+          ) : (
+            <span>{t.contextUnavailable}</span>
+          )}
+        </div>
+
+        {!hasUsage && <div className="context-usage-compact-note">{t.contextUnavailableHint}</div>}
+
+        {contextUsage?.model && <div className="context-usage-model">{contextUsage.model}</div>}
+
+        <div className={`context-usage-meter-row${hasUsage ? '' : ' empty'}`}>
+          <div className="context-usage-meter" aria-hidden="true">
+            <span style={{ width: `${boundedPercent}%` }} />
+          </div>
+          <strong>{hasUsage ? contextUsage?.percentageLabel : isUnavailable ? 'N/A' : '--'}</strong>
+        </div>
+
+        {breakdown.length > 0 && (
+          <div className="context-usage-breakdown">
+            {breakdown.map((entry) => (
+              <div key={`${entry.label}_${entry.tokens}`} className="context-usage-breakdown-row">
+                <span className={`context-usage-tone ${entry.tone}`}>{entry.label}</span>
+                <span>{entry.tokens}</span>
+                <span>{entry.percentage}</span>
+                <span>{entry.extra ?? ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {contextUsage?.compactNote && (
+          <div className="context-usage-compact-note">{contextUsage.compactNote}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 type ChatPanelProps = {
   t: Dictionary
   mode: CliMode
@@ -386,6 +480,8 @@ type ChatPanelProps = {
   showSidebar: () => void
   selectedSessionTitle: string
   activeConversation: ConversationState
+  contextUsage?: CliContextUsage
+  contextUsageSupport: CliContextUsageSupport
   error?: string
   scrollerRef: RefObject<HTMLDivElement | null>
   updateScrollBottomVisibility: () => void
@@ -415,6 +511,8 @@ export function ChatPanel({
   showSidebar,
   selectedSessionTitle,
   activeConversation,
+  contextUsage,
+  contextUsageSupport,
   error,
   scrollerRef,
   updateScrollBottomVisibility,
@@ -482,6 +580,13 @@ export function ChatPanel({
           </div>
         </div>
         <div className="topbar-actions">
+          {(contextUsageSupport !== 'unsupported' || contextUsage) && (
+            <ContextUsageBadge
+              contextUsage={contextUsage}
+              contextUsageSupport={contextUsageSupport}
+              t={t}
+            />
+          )}
           <button className="share-button" onClick={() => void refreshAllSessions()}>
             {t.sync}
           </button>

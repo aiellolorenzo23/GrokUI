@@ -6,6 +6,8 @@ import { readdir } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 import type {
+  CliContextUsage,
+  CliContextUsageEntry,
   CliMode,
   CliRunRequest,
   CliRunStarted,
@@ -15,6 +17,7 @@ import type {
 
 const running = new Map<string, ChildProcessWithoutNullStreams>()
 const streamBuffers = new Map<string, { stdout: string; stderr: string }>()
+const contextBuffers = new Map<string, { active: boolean; lines: string[] }>()
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
@@ -65,6 +68,93 @@ function defaultCwd(cwd?: string): string {
 
 function emit(window: BrowserWindow, event: CliStreamEvent): void {
   window.webContents.send('cli:stream', event)
+}
+
+function toneForContextLabel(label: string): CliContextUsageEntry['tone'] {
+  if (/tool/i.test(label)) return 'tools'
+  if (/free/i.test(label)) return 'free'
+  return 'used'
+}
+
+function parseContextUsage(lines: string[]): CliContextUsage | undefined {
+  if (lines.length < 2) return undefined
+
+  const summaryLine = lines.find((line) => /tokens\s*\(/i.test(line))
+  if (!summaryLine) return undefined
+
+  const summaryMatch = summaryLine.match(
+    /([\d.]+\s*[kKmM]?)\s*\/\s*([\d.]+\s*[kKmM]?)\s*tokens\s*\(([\d.]+)%\)/i
+  )
+  if (!summaryMatch) return undefined
+
+  const filteredLines = lines.map((line) => line.trim()).filter(Boolean)
+  const modelLine = filteredLines.find(
+    (line) =>
+      !/tokens\s*\(/i.test(line) &&
+      !/^[◆◇◈\s]+$/.test(line) &&
+      !/^[◆◇◈]/.test(line) &&
+      !/^Auto-compact\b/i.test(line)
+  )
+
+  const breakdown = filteredLines
+    .filter((line) => /^[◆◇◈]/.test(line) && /\d/.test(line))
+    .flatMap((line): CliContextUsageEntry[] => {
+      const match = line.match(
+        /^[◆◇◈]\s+(.+?)\s{2,}([\d.]+\s*[kKmM]?\s+tokens)\s{2,}\(([\d.]+%)\)(?:\s*[·•]\s*(.+))?$/
+      )
+      if (!match) return []
+
+      return [{
+        label: match[1].trim(),
+        tokens: match[2].trim(),
+        percentage: match[3].trim(),
+        extra: match[4]?.trim(),
+        tone: toneForContextLabel(match[1].trim())
+      }]
+    })
+
+  const compactNote = filteredLines.find((line) => /^Auto-compact\b/i.test(line))
+
+  return {
+    usedTokens: summaryMatch[1].replace(/\s+/g, ''),
+    totalTokens: summaryMatch[2].replace(/\s+/g, ''),
+    percentage: Number(summaryMatch[3]),
+    percentageLabel: `${summaryMatch[3]}%`,
+    model: modelLine,
+    compactNote,
+    breakdown
+  }
+}
+
+function handleContextLine(
+  window: BrowserWindow,
+  runId: string,
+  mode: CliMode,
+  line: string
+): boolean {
+  const state = contextBuffers.get(runId) ?? { active: false, lines: [] }
+  const trimmed = line.trim()
+
+  if (!state.active && /^Context$/i.test(trimmed)) {
+    contextBuffers.set(runId, { active: true, lines: [trimmed] })
+    return true
+  }
+
+  if (!state.active) return false
+
+  state.lines.push(trimmed)
+
+  if (/^Auto-compact\b/i.test(trimmed)) {
+    const parsed = parseContextUsage(state.lines)
+    if (parsed) {
+      emit(window, { runId, mode, kind: 'json', data: { type: 'context-usage', ...parsed } })
+    }
+    contextBuffers.delete(runId)
+    return true
+  }
+
+  contextBuffers.set(runId, state)
+  return true
 }
 
 function extractTextFromJson(data: unknown, depth = 0): string | undefined {
@@ -132,6 +222,8 @@ function emitLine(
 ): void {
   if (!line.trim()) return
 
+  if (handleContextLine(window, runId, mode, line)) return
+
   if (kind === 'stdout') {
     try {
       const data = JSON.parse(line) as unknown
@@ -173,6 +265,7 @@ function flushStreamBuffer(window: BrowserWindow, runId: string, mode: CliMode):
   emitLine(window, runId, mode, 'stdout', buffers.stdout)
   emitLine(window, runId, mode, 'stderr', buffers.stderr)
   streamBuffers.delete(runId)
+  contextBuffers.delete(runId)
 }
 
 function runCli(args: string[], cwd: string, mode: CliMode): Promise<string> {
@@ -322,6 +415,7 @@ export function startCliRun(window: BrowserWindow, request: CliRunRequest): CliR
 
   running.set(runId, child)
   streamBuffers.set(runId, { stdout: '', stderr: '' })
+  contextBuffers.set(runId, { active: false, lines: [] })
 
   child.stdout.on('data', (chunk: Buffer) => {
     emitBufferedLines(window, runId, request.mode, 'stdout', chunk)
@@ -356,5 +450,6 @@ export function stopCliRun(runId: string): boolean {
   child.kill()
   running.delete(runId)
   streamBuffers.delete(runId)
+  contextBuffers.delete(runId)
   return true
 }

@@ -1,4 +1,4 @@
-import type { CliMode, CliSession } from '../../shared/types'
+import type { CliContextUsage, CliMode, CliSession } from '../../shared/types'
 
 export type AssistantViewMode = 'grokui' | 'cli'
 
@@ -14,6 +14,7 @@ export type ConversationState = {
   messages: ChatMessage[]
   activeSessionId?: string
   activeRunId?: string
+  contextUsage?: CliContextUsage
 }
 
 export type SessionPrefs = {

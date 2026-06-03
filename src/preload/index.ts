@@ -1,10 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { CliMode, CliRunRequest, CliStreamEvent } from '../shared/types'
+import type { CliCapabilities, CliMode, CliRunRequest, CliStreamEvent } from '../shared/types'
 
 const bootstrap = {
   systemLocale: ipcRenderer.sendSync('app:get-system-locale-sync') as string,
-  homeDir: ipcRenderer.sendSync('app:get-home-dir-sync') as string
+  homeDir: ipcRenderer.sendSync('app:get-home-dir-sync') as string,
+  cliCapabilities: ipcRenderer.sendSync('app:get-cli-capabilities-sync') as CliCapabilities
 }
 
 // Custom APIs for renderer
@@ -18,6 +19,7 @@ const api = {
   startCli: (request: CliRunRequest) => ipcRenderer.invoke('cli:start', request),
   stopCli: (runId: string) => ipcRenderer.invoke('cli:stop', runId),
   openMedia: (target: string) => ipcRenderer.invoke('app:open-media', target),
+  openContainingFolder: (target: string) => ipcRenderer.invoke('app:open-containing-folder', target),
   readPreferences: () => ipcRenderer.invoke('app:read-preferences'),
   writePreferences: (value: unknown) => ipcRenderer.invoke('app:write-preferences', value),
   getSystemLocale: () => ipcRenderer.invoke('app:get-system-locale'),
