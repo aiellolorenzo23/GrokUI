@@ -72,6 +72,20 @@ export function createAttachedFile(path: string): AttachedFile {
   }
 }
 
+export function createChatMessage(
+  role: ChatMessage['role'],
+  content: string,
+  extras: Partial<ChatMessage> = {}
+): ChatMessage {
+  return {
+    id: createId(),
+    role,
+    content,
+    mediaLinks: extractMediaLinks(content),
+    ...extras
+  }
+}
+
 export function createDroppedFile(file: File): AttachedFile | undefined {
   const path = window.api.getFilePath(file)
   if (!path) return undefined
@@ -128,9 +142,7 @@ export function transcriptToMessages(transcript: string, media: string[] = []): 
     return attachMediaToMessages(
       [
         {
-          id: createId(),
-          role: 'assistant',
-          content: trimmed
+          ...createChatMessage('assistant', trimmed)
         }
       ],
       media
@@ -144,11 +156,7 @@ export function transcriptToMessages(transcript: string, media: string[] = []): 
       const content = trimmed.slice(start, end).trim()
       if (!content) return undefined
 
-      return {
-        id: createId(),
-        role: messageRoleFromHeading(heading[1]),
-        content
-      }
+      return createChatMessage(messageRoleFromHeading(heading[1]), content)
     })
     .filter((message): message is ChatMessage => Boolean(message))
 

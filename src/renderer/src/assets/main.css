@@ -351,6 +351,13 @@ button:disabled {
   white-space: nowrap;
 }
 
+.topbar-subtitle {
+  display: block;
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
 .topbar-actions {
   gap: 8px;
 }
@@ -426,7 +433,7 @@ button:disabled {
   justify-items: end;
 }
 
-.chat-message.user pre {
+.chat-message.user .message-content {
   max-width: min(620px, 80%);
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -434,7 +441,7 @@ button:disabled {
   background: #15171a;
 }
 
-.chat-message.system pre {
+.chat-message.system .message-content {
   color: var(--danger);
 }
 
@@ -446,8 +453,9 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.chat-message pre {
-  margin: 0;
+.message-content {
+  display: grid;
+  gap: 12px;
   white-space: pre-wrap;
   word-break: break-word;
   font-family:
@@ -458,6 +466,10 @@ button:disabled {
     sans-serif;
   font-size: 14px;
   line-height: 1.72;
+}
+
+.message-content p {
+  margin: 0;
 }
 
 .media-actions {

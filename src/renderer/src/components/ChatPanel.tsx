@@ -3,6 +3,18 @@ import type { CliMode } from '../../../shared/types'
 import type { AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
 
+function MessageContent({ content }: { content: string }): React.JSX.Element {
+  const blocks = content.split(/\n{2,}/).filter((block) => block.length > 0)
+
+  return (
+    <div className="message-content">
+      {blocks.map((block, index) => (
+        <p key={`${index}_${block.slice(0, 24)}`}>{block}</p>
+      ))}
+    </div>
+  )
+}
+
 type ChatPanelProps = {
   t: Dictionary
   mode: CliMode
@@ -16,7 +28,7 @@ type ChatPanelProps = {
   showScrollBottom: boolean
   scrollToBottom: (behavior?: ScrollBehavior) => void
   renderMediaActions: (links: string[]) => React.JSX.Element | undefined
-  messages: Array<ChatMessage & { mediaLinks: string[] }>
+  messages: ChatMessage[]
   attachedFiles: AttachedFile[]
   removeAttachedFile: (path: string) => void
   prompt: string
@@ -77,6 +89,9 @@ export function ChatPanel({
           <div>
             <p>{mode === 'grok' ? t.grokCli : t.agentCli}</p>
             <h1>{selectedSessionTitle}</h1>
+            <span className="topbar-subtitle">
+              {mode === 'grok' ? t.grokModeDescription : t.agentModeDescription}
+            </span>
           </div>
         </div>
         <div className="topbar-actions">
@@ -106,8 +121,8 @@ export function ChatPanel({
             <div className="message-author">
               {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
             </div>
-            <pre>{message.content}</pre>
-            {renderMediaActions([...message.mediaLinks, ...(message.media ?? [])])}
+            <MessageContent content={message.content} />
+            {renderMediaActions([...(message.mediaLinks ?? []), ...(message.media ?? [])])}
           </article>
         ))}
 

@@ -5,6 +5,7 @@ export type ChatMessage = {
   role: 'user' | 'assistant' | 'system'
   content: string
   media?: string[]
+  mediaLinks?: string[]
 }
 
 export type ConversationState = {

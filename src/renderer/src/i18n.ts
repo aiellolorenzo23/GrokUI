@@ -22,6 +22,8 @@ export type Dictionary = {
   stop: string
   grokCli: string
   agentCli: string
+  grokModeDescription: string
+  agentModeDescription: string
   newConversation: string
   talkToGrok: string
   startAgent: string
@@ -67,6 +69,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     stop: 'Stop',
     grokCli: 'Grok CLI',
     agentCli: 'Agent CLI',
+    grokModeDescription: 'Chat diretta con Grok usando la CLI locale.',
+    agentModeDescription: 'Workflow guidato per task multi-step tramite Agent CLI.',
     newConversation: 'Nuova conversazione',
     talkToGrok: 'Parla con Grok',
     startAgent: 'Avvia Agent',
@@ -111,6 +115,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     stop: 'Stop',
     grokCli: 'Grok CLI',
     agentCli: 'Agent CLI',
+    grokModeDescription: 'Direct chat with Grok using the local CLI.',
+    agentModeDescription: 'Guided multi-step task workflow through Agent CLI.',
     newConversation: 'New conversation',
     talkToGrok: 'Talk to Grok',
     startAgent: 'Start Agent',

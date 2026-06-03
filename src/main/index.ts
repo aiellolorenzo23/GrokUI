@@ -133,6 +133,12 @@ app.whenReady().then(() => {
   ipcMain.handle('app:write-preferences', (_, value) => writePreferences(value))
   ipcMain.handle('app:get-system-locale', () => getSystemLocale())
   ipcMain.handle('app:get-home-dir', () => getHomeDir())
+  ipcMain.on('app:get-system-locale-sync', (event) => {
+    event.returnValue = getSystemLocale()
+  })
+  ipcMain.on('app:get-home-dir-sync', (event) => {
+    event.returnValue = getHomeDir()
+  })
   ipcMain.handle('app:select-files', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {

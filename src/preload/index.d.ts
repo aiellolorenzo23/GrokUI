@@ -14,6 +14,10 @@ type SelectedFile = {
 }
 
 type GrokUiApi = {
+  bootstrap: {
+    systemLocale: string
+    homeDir: string
+  }
   listSessions: (mode: CliMode, cwd: string, limit?: number) => Promise<CliSession[]>
   exportSession: (mode: CliMode, cwd: string, sessionId: string) => Promise<string>
   listSessionMedia: (sessionId: string) => Promise<string[]>

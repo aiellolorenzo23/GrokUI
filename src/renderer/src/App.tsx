@@ -11,9 +11,8 @@ import { getDictionary } from './i18n'
 import {
   appendMediaToLastAssistant,
   createAttachedFile,
+  createChatMessage,
   createDroppedFile,
-  createId,
-  extractMediaLinks,
   sessionTitle,
   shortId,
   transcriptToMessages,
@@ -24,10 +23,21 @@ function mergeSessions(...groups: CliSession[][]): CliSession[] {
   return Array.from(new Map(groups.flat().map((session) => [session.id, session])).values())
 }
 
+function clampContextMenuPosition(x: number, y: number): { x: number; y: number } {
+  const menuWidth = 188
+  const menuHeight = 120
+  const margin = 12
+
+  return {
+    x: Math.max(margin, Math.min(x, window.innerWidth - menuWidth - margin)),
+    y: Math.max(margin, Math.min(y, window.innerHeight - menuHeight - margin))
+  }
+}
+
 function App(): React.JSX.Element {
-  const [locale, setLocale] = useState(() => navigator.language || 'en')
+  const [locale, setLocale] = useState(() => window.api.bootstrap.systemLocale || navigator.language || 'en')
   const [mode, setMode] = useState<CliMode>('grok')
-  const [cwd, setCwd] = useState('')
+  const [cwd, setCwd] = useState(() => window.api.bootstrap.homeDir || '')
   const [model, setModel] = useState('')
   const [prompt, setPrompt] = useState('')
   const [sessions, setSessions] = useState<Record<CliMode, CliSession[]>>({ grok: [], agent: [] })
@@ -68,15 +78,6 @@ function App(): React.JSX.Element {
     [activeConversation.activeSessionId, mode, visibleSessions]
   )
 
-  const renderedMessages = useMemo(
-    () =>
-      activeConversation.messages.map((message) => ({
-        ...message,
-        mediaLinks: extractMediaLinks(message.content)
-      })),
-    [activeConversation.messages]
-  )
-
   const isLoadingSessions = loadingState.all || loadingState.grok || loadingState.agent
 
   const setLoading = (key: 'all' | CliMode, value: boolean): void => {
@@ -84,12 +85,10 @@ function App(): React.JSX.Element {
   }
 
   useEffect(() => {
-    void Promise.all([window.api.getSystemLocale(), window.api.getHomeDir()]).then(
-      ([systemLocale, homeDir]) => {
-        setLocale(systemLocale)
-        setCwd(homeDir)
-      }
-    )
+    void Promise.all([window.api.getSystemLocale(), window.api.getHomeDir()]).then(([systemLocale, homeDir]) => {
+      if (systemLocale !== localeRef.current) setLocale(systemLocale)
+      if (homeDir && homeDir !== cwd) setCwd(homeDir)
+    })
   }, [])
 
   const refreshSessions = async (targetMode: CliMode = mode): Promise<void> => {
@@ -243,9 +242,13 @@ function App(): React.JSX.Element {
           const last = messages[messages.length - 1]
 
           if (last?.role === 'assistant') {
-            messages[messages.length - 1] = { ...last, content: `${last.content}${chunk}` }
+            const nextContent = `${last.content}${chunk}`
+            messages[messages.length - 1] = {
+              ...createChatMessage('assistant', nextContent, { id: last.id, media: last.media }),
+              media: last.media
+            }
           } else {
-            messages.push({ id: createId(), role: 'assistant', content: chunk })
+            messages.push(createChatMessage('assistant', chunk))
           }
 
           return { ...current, [event.mode]: { ...target, messages } }
@@ -259,9 +262,7 @@ function App(): React.JSX.Element {
               messages: [
                 ...target.messages,
                 {
-                  id: createId(),
-                  role: 'system',
-                  content: event.text ?? getDictionary(localeRef.current).cliError
+                  ...createChatMessage('system', event.text ?? getDictionary(localeRef.current).cliError)
                 }
               ]
             }
@@ -381,7 +382,7 @@ function App(): React.JSX.Element {
       ...current,
       [mode]: {
         ...current[mode],
-        messages: [...current[mode].messages, { id: createId(), role: 'user', content: outgoingPrompt }]
+        messages: [...current[mode].messages, createChatMessage('user', outgoingPrompt)]
       }
     }))
 
@@ -457,7 +458,7 @@ function App(): React.JSX.Element {
       onClick={() => void openSession(targetMode, session)}
       onContextMenu={(event) => {
         event.preventDefault()
-        setContextMenu({ mode: targetMode, session, x: event.clientX, y: event.clientY })
+        setContextMenu({ mode: targetMode, session, ...clampContextMenuPosition(event.clientX, event.clientY) })
       }}
     >
       <strong>{sessionTitle(session, prefs.aliases, t.sessionFallback(shortId(session.id)))}</strong>
@@ -523,7 +524,7 @@ function App(): React.JSX.Element {
         showScrollBottom={showScrollBottom}
         scrollToBottom={scrollToBottom}
         renderMediaActions={renderMediaActions}
-        messages={renderedMessages}
+        messages={activeConversation.messages}
         attachedFiles={attachedFiles}
         removeAttachedFile={removeAttachedFile}
         prompt={prompt}
