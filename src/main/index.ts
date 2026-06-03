@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
@@ -6,6 +6,19 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { exportSession, listSessionMedia, listSessions, startCliRun, stopCliRun } from './cli'
 import iconIco from '../../build/icon.ico?asset'
 import icon from '../../resources/icon.png?asset'
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'grokui-media',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true
+    }
+  }
+])
 
 function createWindow(): void {
   // Create the browser window.
@@ -99,11 +112,41 @@ function getHomeDir(): string {
   return app.getPath('home')
 }
 
+function contentTypeForPath(target: string): string {
+  if (/\.(png)$/i.test(target)) return 'image/png'
+  if (/\.(jpe?g)$/i.test(target)) return 'image/jpeg'
+  if (/\.(webp)$/i.test(target)) return 'image/webp'
+  if (/\.(gif)$/i.test(target)) return 'image/gif'
+  if (/\.(mp4)$/i.test(target)) return 'video/mp4'
+  if (/\.(webm)$/i.test(target)) return 'video/webm'
+  return 'application/octet-stream'
+}
+
+function registerMediaProtocol(): void {
+  protocol.handle('grokui-media', async (request) => {
+    const url = new URL(request.url)
+    const encodedPath = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname
+    const decodedTarget = decodeURIComponent(encodedPath)
+    const filePath = /^file:\/\//i.test(decodedTarget)
+      ? fileURLToPath(decodedTarget)
+      : decodedTarget
+    const fileBuffer = await readFile(filePath)
+
+    return new Response(fileBuffer, {
+      headers: {
+        'content-type': contentTypeForPath(filePath),
+        'cache-control': 'no-store'
+      }
+    })
+  })
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   app.setName('GrokUI')
+  registerMediaProtocol()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.lollo.grokui')

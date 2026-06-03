@@ -9,6 +9,7 @@ import {
   normalizeHighlightLanguage
 } from '../utils/highlight'
 import { parseInlineTokens, parseMarkdownBlocks, unescapeMarkdownText } from '../utils/markdown'
+import { mediaPreviewSrc, mediaTypeFromPath } from '../utils/chat'
 
 function renderInlineContent(text: string): React.JSX.Element[] {
   return parseInlineTokens(unescapeMarkdownText(text)).map((token, index) =>
@@ -224,6 +225,78 @@ function TableBlock({
   )
 }
 
+function MessageMediaGallery({
+  links,
+  t
+}: {
+  links: string[]
+  t: Dictionary
+}): React.JSX.Element | null {
+  const previewItems = Array.from(new Set(links))
+    .map((link) => ({ link, mediaType: mediaTypeFromPath(link) }))
+    .filter(
+      (item) =>
+        item.mediaType === 'image' || item.mediaType === 'video' || item.mediaType === 'file'
+    )
+
+  if (previewItems.length === 0) return null
+
+  return (
+    <div className="message-media-preview-grid">
+      {previewItems.map((item) => (
+        <div key={item.link} className="message-media-card">
+          <button
+            type="button"
+            className="message-media-preview"
+            title={t.viewMedia(item.mediaType)}
+            onClick={() => void window.api.openMedia(item.link)}
+          >
+            {item.mediaType === 'image' ? (
+              <img src={mediaPreviewSrc(item.link)} alt="" loading="lazy" />
+            ) : item.mediaType === 'video' ? (
+              <video src={mediaPreviewSrc(item.link)} muted playsInline preload="metadata" />
+            ) : (
+              <div className="message-media-file-fallback">
+                {item.link.split(/[\\/]/).pop() ?? item.link}
+              </div>
+            )}
+          </button>
+          <div className="message-media-card-actions">
+            <button
+              type="button"
+              className="media-action"
+              onClick={() => void window.api.openMedia(item.link)}
+            >
+              <span className={`media-action-icon ${item.mediaType}`} aria-hidden="true">
+                {item.mediaType === 'video' ? (
+                  <svg viewBox="0 0 16 16" focusable="false">
+                    <path
+                      d="M3.2 2h8.6c.45 0 .84.3.95.73l.52 2.02H2.68l-.43-1.66A.9.9 0 0 1 3.2 2Zm10.2 3.75v6.95A1.3 1.3 0 0 1 12.1 14H3.9a1.3 1.3 0 0 1-1.3-1.3V5.75h10.8ZM6.4 8.05v2.6c0 .3.33.48.58.32l2.1-1.3a.38.38 0 0 0 0-.64l-2.1-1.3a.38.38 0 0 0-.58.32ZM4.05 2.9l1.55 1.15h1.52L5.54 2.9H4.05Zm3.67 0 1.56 1.15h1.51L9.21 2.9H7.72Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                ) : item.mediaType === 'image' ? (
+                  <svg viewBox="0 0 16 16" focusable="false">
+                    <path
+                      d="M2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9A1.5 1.5 0 0 1 2.5 2Zm0 1a.5.5 0 0 0-.5.5v6.336l.782-.782a1 1 0 0 1 1.414 0L5.5 10.858l3.764-3.764a1 1 0 0 1 1.415 0L14 10.414V3.5a.5.5 0 0 0-.5-.5Zm7.25 2a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 16 16" focusable="false">
+                    <circle cx="8" cy="8" r="2" fill="currentColor" />
+                  </svg>
+                )}
+              </span>
+              <span>{t.viewMedia(item.mediaType)}</span>
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function MessageContent({
   content,
   t,
@@ -318,7 +391,6 @@ type ChatPanelProps = {
   updateScrollBottomVisibility: () => void
   showScrollBottom: boolean
   scrollToBottom: (behavior?: ScrollBehavior) => void
-  renderMediaActions: (links: string[]) => React.JSX.Element | undefined
   assistantViewMode: AssistantViewMode
   messages: ChatMessage[]
   attachedFiles: AttachedFile[]
@@ -348,7 +420,6 @@ export function ChatPanel({
   updateScrollBottomVisibility,
   showScrollBottom,
   scrollToBottom,
-  renderMediaActions,
   assistantViewMode,
   messages,
   attachedFiles,
@@ -432,31 +503,39 @@ export function ChatPanel({
           </div>
         )}
 
-        {messages.map((message) => (
-          <article
-            key={message.id}
-            className={
-              message.role === 'assistant'
-                ? `chat-message ${message.role} ${assistantViewMode === 'cli' ? 'cli-like' : 'grokui-like'}`
-                : `chat-message ${message.role}`
-            }
-          >
-            <div className="message-author">
-              {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
-            </div>
-            <div className="message-toolbar">
-              <button
-                className="message-copy-button"
-                type="button"
-                onClick={() => void copyMessage(message)}
-              >
-                {copiedMessageId === message.id ? t.copied : t.copyMessage}
-              </button>
-            </div>
-            <MessageContent content={message.content} t={t} assistantViewMode={assistantViewMode} />
-            {renderMediaActions([...(message.mediaLinks ?? []), ...(message.media ?? [])])}
-          </article>
-        ))}
+        {messages.map((message) => {
+          const messageMedia = [...(message.mediaLinks ?? []), ...(message.media ?? [])]
+
+          return (
+            <article
+              key={message.id}
+              className={
+                message.role === 'assistant'
+                  ? `chat-message ${message.role} ${assistantViewMode === 'cli' ? 'cli-like' : 'grokui-like'}`
+                  : `chat-message ${message.role}`
+              }
+            >
+              <div className="message-author">
+                {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
+              </div>
+              <div className="message-toolbar">
+                <button
+                  className="message-copy-button"
+                  type="button"
+                  onClick={() => void copyMessage(message)}
+                >
+                  {copiedMessageId === message.id ? t.copied : t.copyMessage}
+                </button>
+              </div>
+              <MessageContent
+                content={message.content}
+                t={t}
+                assistantViewMode={assistantViewMode}
+              />
+              <MessageMediaGallery links={messageMedia} t={t} />
+            </article>
+          )
+        })}
 
         {activeConversation.activeRunId && (
           <article className="chat-message assistant pending">

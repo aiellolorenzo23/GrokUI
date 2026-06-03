@@ -112,25 +112,20 @@ export function attachMediaToMessages(messages: ChatMessage[], media: string[]):
 
   const assigned = new Set<string>()
   const nextMessages = messages.map((message) => {
+    const messageLinks = new Set([
+      ...(message.mediaLinks ?? []).map(normalizeMediaLink),
+      ...extractMediaLinks(message.content).map(normalizeMediaLink)
+    ])
     const content = message.content.toLowerCase()
-    const matches = media.filter((item) => content.includes(filenameFromPath(item)))
+    const matches = media.filter((item) => {
+      const normalizedItem = normalizeMediaLink(item)
+      return messageLinks.has(normalizedItem) || content.includes(filenameFromPath(normalizedItem))
+    })
     if (matches.length === 0) return message
 
     matches.forEach((item) => assigned.add(item))
     return { ...message, media: Array.from(new Set([...(message.media ?? []), ...matches])) }
   })
-
-  const remaining = media.filter((item) => !assigned.has(item))
-  if (remaining.length === 0) return nextMessages
-
-  const lastAssistantIndex = nextMessages.findLastIndex((message) => message.role === 'assistant')
-  if (lastAssistantIndex < 0) return nextMessages
-
-  const target = nextMessages[lastAssistantIndex]
-  nextMessages[lastAssistantIndex] = {
-    ...target,
-    media: Array.from(new Set([...(target.media ?? []), ...remaining]))
-  }
 
   return nextMessages
 }
@@ -169,6 +164,16 @@ export function transcriptToMessages(transcript: string, media: string[] = []): 
 
 export function normalizeMediaLink(link: string): string {
   return link.replace(/[),.;]+$/g, '')
+}
+
+export function mediaPreviewSrc(path: string): string {
+  const normalized = normalizeMediaLink(path)
+
+  if (/^https?:\/\//i.test(normalized)) {
+    return encodeURI(normalized)
+  }
+
+  return `grokui-media://local/${encodeURIComponent(normalized)}`
 }
 
 export function extractMediaLinks(text: string): string[] {

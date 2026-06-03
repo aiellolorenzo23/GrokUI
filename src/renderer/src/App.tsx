@@ -30,8 +30,7 @@ import {
   createDroppedFile,
   sessionTitle,
   shortId,
-  transcriptToMessages,
-  mediaTypeFromPath
+  transcriptToMessages
 } from './utils/chat'
 
 function mergeSessions(...groups: CliSession[][]): CliSession[] {
@@ -500,29 +499,6 @@ function App(): React.JSX.Element {
     </button>
   )
 
-  const renderMediaActions = (links: string[]): React.JSX.Element | undefined => {
-    const uniqueLinks = Array.from(new Set(links))
-    if (uniqueLinks.length === 0) return undefined
-
-    return (
-      <div className="media-actions">
-        {uniqueLinks.map((link) => {
-          const mediaType = mediaTypeFromPath(link)
-
-          return (
-            <button
-              key={link}
-              className="media-action"
-              onClick={() => void window.api.openMedia(link)}
-            >
-              <span>{t.viewMedia(mediaType)}</span>
-            </button>
-          )
-        })}
-      </div>
-    )
-  }
-
   const selectedSessionTitle = selectedSession
     ? sessionTitle(selectedSession, prefs.aliases, t.sessionFallback(shortId(selectedSession.id)))
     : t.newConversation
@@ -565,7 +541,6 @@ function App(): React.JSX.Element {
         updateScrollBottomVisibility={updateScrollBottomVisibility}
         showScrollBottom={showScrollBottom}
         scrollToBottom={scrollToBottom}
-        renderMediaActions={renderMediaActions}
         assistantViewMode={prefs.assistantViewMode}
         messages={activeConversation.messages}
         attachedFiles={attachedFiles}
