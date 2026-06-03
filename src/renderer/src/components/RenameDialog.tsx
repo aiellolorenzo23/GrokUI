@@ -5,7 +5,12 @@ import type { Dictionary } from '../i18n'
 type RenameDialogProps = {
   renameTarget: RenameState
   t: Dictionary
-  setRenameTarget: (updater: RenameState | undefined | ((current: RenameState | undefined) => RenameState | undefined)) => void
+  setRenameTarget: (
+    updater:
+      | RenameState
+      | undefined
+      | ((current: RenameState | undefined) => RenameState | undefined)
+  ) => void
   confirmRename: () => void
   close: () => void
 }

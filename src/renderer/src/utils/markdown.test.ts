@@ -8,7 +8,9 @@ import {
 
 describe('unescapeMarkdownText', () => {
   it('removes markdown escape characters for supported punctuation', () => {
-    expect(unescapeMarkdownText(String.raw`\*\*bold\*\* \[link\] \~\~x\~\~`)).toBe('**bold** [link] ~~x~~')
+    expect(unescapeMarkdownText(String.raw`\*\*bold\*\* \[link\] \~\~x\~\~`)).toBe(
+      '**bold** [link] ~~x~~'
+    )
   })
 })
 
@@ -98,7 +100,9 @@ describe('parseMarkdownBlocks', () => {
   it('parses tables with alignments', () => {
     expect(
       parseMarkdownBlocks(
-        ['Name | Count | State', ':--- | ---: | :---:', 'Grok | 2 | ok', 'Agent | 4 | run'].join('\n')
+        ['Name | Count | State', ':--- | ---: | :---:', 'Grok | 2 | ok', 'Agent | 4 | run'].join(
+          '\n'
+        )
       )
     ).toEqual([
       {

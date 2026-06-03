@@ -1,4 +1,13 @@
-import { type CSSProperties, type DragEvent, type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type DragEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 import type { CliMode, CliSession, CliStreamEvent } from '../../shared/types'
 import grokLogo from '../../../resources/logo.svg'
 import { ChatPanel } from './components/ChatPanel'
@@ -41,7 +50,9 @@ function clampContextMenuPosition(x: number, y: number): { x: number; y: number 
 }
 
 function App(): React.JSX.Element {
-  const [locale, setLocale] = useState(() => window.api.bootstrap.systemLocale || navigator.language || 'en')
+  const [locale, setLocale] = useState(
+    () => window.api.bootstrap.systemLocale || navigator.language || 'en'
+  )
   const [mode, setMode] = useState<CliMode>('grok')
   const [cwd, setCwd] = useState(() => window.api.bootstrap.homeDir || '')
   const [model, setModel] = useState('')
@@ -80,7 +91,8 @@ function App(): React.JSX.Element {
   )
 
   const selectedSession = useMemo(
-    () => visibleSessions[mode].find((session) => session.id === activeConversation.activeSessionId),
+    () =>
+      visibleSessions[mode].find((session) => session.id === activeConversation.activeSessionId),
     [activeConversation.activeSessionId, mode, visibleSessions]
   )
 
@@ -91,45 +103,50 @@ function App(): React.JSX.Element {
   }
 
   useEffect(() => {
-    void Promise.all([window.api.getSystemLocale(), window.api.getHomeDir()]).then(([systemLocale, homeDir]) => {
-      if (systemLocale !== localeRef.current) setLocale(systemLocale)
-      if (homeDir && homeDir !== cwd) setCwd(homeDir)
-    })
+    void Promise.all([window.api.getSystemLocale(), window.api.getHomeDir()]).then(
+      ([systemLocale, homeDir]) => {
+        if (systemLocale !== localeRef.current) setLocale(systemLocale)
+        if (homeDir) setCwd((current) => (homeDir !== current ? homeDir : current))
+      }
+    )
   }, [])
 
-  const refreshSessions = async (targetMode: CliMode = mode): Promise<void> => {
-    setLoading(targetMode, true)
-    setError(undefined)
+  const refreshSessions = useCallback(
+    async (targetMode: CliMode = mode): Promise<void> => {
+      setLoading(targetMode, true)
+      setError(undefined)
 
-    try {
-      const nextSessions = await window.api.listSessions(targetMode, cwd, 50)
+      try {
+        const nextSessions = await window.api.listSessions(targetMode, cwd, 50)
 
-      if (targetMode === 'grok') {
-        setSessions((current) => ({
-          grok: nextSessions,
-          agent: mergeSessions(
-            current.agent.filter((session) => !prefs.agentSessionIds.includes(session.id)),
-            current.agent.filter((session) => prefs.agentSessionIds.includes(session.id)),
-            nextSessions.filter((session) => prefs.agentSessionIds.includes(session.id))
-          )
-        }))
-      } else {
-        setSessions((current) => ({
-          ...current,
-          agent: mergeSessions(
-            nextSessions,
-            current.grok.filter((session) => prefs.agentSessionIds.includes(session.id))
-          )
-        }))
+        if (targetMode === 'grok') {
+          setSessions((current) => ({
+            grok: nextSessions,
+            agent: mergeSessions(
+              current.agent.filter((session) => !prefs.agentSessionIds.includes(session.id)),
+              current.agent.filter((session) => prefs.agentSessionIds.includes(session.id)),
+              nextSessions.filter((session) => prefs.agentSessionIds.includes(session.id))
+            )
+          }))
+        } else {
+          setSessions((current) => ({
+            ...current,
+            agent: mergeSessions(
+              nextSessions,
+              current.grok.filter((session) => prefs.agentSessionIds.includes(session.id))
+            )
+          }))
+        }
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : String(reason))
+      } finally {
+        setLoading(targetMode, false)
       }
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-    } finally {
-      setLoading(targetMode, false)
-    }
-  }
+    },
+    [cwd, mode, prefs.agentSessionIds]
+  )
 
-  const refreshAllSessions = async (): Promise<void> => {
+  const refreshAllSessions = useCallback(async (): Promise<void> => {
     setLoading('all', true)
     setError(undefined)
 
@@ -151,13 +168,13 @@ function App(): React.JSX.Element {
     } finally {
       setLoading('all', false)
     }
-  }
+  }, [cwd, prefs.agentSessionIds])
 
   useEffect(() => {
     if (!cwd || initialRefreshDoneRef.current) return
     initialRefreshDoneRef.current = true
     void refreshAllSessions()
-  }, [cwd])
+  }, [cwd, refreshAllSessions])
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent): void => {
@@ -268,7 +285,10 @@ function App(): React.JSX.Element {
               messages: [
                 ...target.messages,
                 {
-                  ...createChatMessage('system', event.text ?? getDictionary(localeRef.current).cliError)
+                  ...createChatMessage(
+                    'system',
+                    event.text ?? getDictionary(localeRef.current).cliError
+                  )
                 }
               ]
             }
@@ -464,10 +484,16 @@ function App(): React.JSX.Element {
       onClick={() => void openSession(targetMode, session)}
       onContextMenu={(event) => {
         event.preventDefault()
-        setContextMenu({ mode: targetMode, session, ...clampContextMenuPosition(event.clientX, event.clientY) })
+        setContextMenu({
+          mode: targetMode,
+          session,
+          ...clampContextMenuPosition(event.clientX, event.clientY)
+        })
       }}
     >
-      <strong>{sessionTitle(session, prefs.aliases, t.sessionFallback(shortId(session.id)))}</strong>
+      <strong>
+        {sessionTitle(session, prefs.aliases, t.sessionFallback(shortId(session.id)))}
+      </strong>
       <span>
         {session.updated} - {session.status}
       </span>
@@ -484,7 +510,11 @@ function App(): React.JSX.Element {
           const mediaType = mediaTypeFromPath(link)
 
           return (
-            <button key={link} className="media-action" onClick={() => void window.api.openMedia(link)}>
+            <button
+              key={link}
+              className="media-action"
+              onClick={() => void window.api.openMedia(link)}
+            >
               <span>{t.viewMedia(mediaType)}</span>
             </button>
           )

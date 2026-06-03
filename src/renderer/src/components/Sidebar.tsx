@@ -46,7 +46,12 @@ export function Sidebar({
     <aside className={isHidden ? 'grok-sidebar hidden' : 'grok-sidebar'} aria-hidden={isHidden}>
       <div className="sidebar-head">
         <div className="brand-logo" style={logoStyle} aria-label="GrokUI" />
-        <button className="sidebar-toggle-button" aria-label={t.hideMenu} title={t.hideMenu} onClick={onHide}>
+        <button
+          className="sidebar-toggle-button"
+          aria-label={t.hideMenu}
+          title={t.hideMenu}
+          onClick={onHide}
+        >
           <span aria-hidden="true">&lsaquo;</span>
         </button>
       </div>
@@ -111,15 +116,17 @@ export function Sidebar({
           <button onClick={() => void refreshSessions(mode)}>{t.refresh}</button>
         </div>
         <div className="history-list">
-          {visibleSessions[mode].length === 0 && <p className="empty-list">{t.noConversationsForMode}</p>}
+          {visibleSessions[mode].length === 0 && (
+            <p className="empty-list">{t.noConversationsForMode}</p>
+          )}
           {visibleSessions[mode].map((session) => renderSession(mode, session))}
         </div>
       </section>
 
       <div className="account">
-        <div className="avatar">L</div>
+        <div className="avatar">G</div>
         <div>
-          <strong>lorenzo_aiello</strong>
+          <strong>GrokUI</strong>
           <span>{cwd}</span>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent, type FormEvent, type RefObject } from 'react'
+import { useEffect, useMemo, useState, type DragEvent, type FormEvent, type RefObject } from 'react'
 import type { CliMode } from '../../../shared/types'
 import type { AssistantViewMode, AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
@@ -63,7 +63,11 @@ function renderInlineLines(text: string): React.JSX.Element[] {
     })
 }
 
-function tableToMarkdown(headers: string[], alignments: Array<'left' | 'center' | 'right' | undefined>, rows: string[][]): string {
+function tableToMarkdown(
+  headers: string[],
+  alignments: Array<'left' | 'center' | 'right' | undefined>,
+  rows: string[][]
+): string {
   const separator = alignments.map((alignment) => {
     if (alignment === 'left') return ':---'
     if (alignment === 'right') return '---:'
@@ -90,24 +94,29 @@ function CodeBlock({
   assistantViewMode: AssistantViewMode
 }): React.JSX.Element {
   const [didCopy, setDidCopy] = useState(false)
-  const [html, setHtml] = useState<string>(() => getPlainCodeHtml(code))
+  const [highlightedHtml, setHighlightedHtml] = useState<string>()
   const [wrapLines, setWrapLines] = useState(false)
   const languageLabel = getHighlightLanguageLabel(language, code)
+  const plainHtml = useMemo(() => getPlainCodeHtml(code), [code])
+  const blockKey = `${assistantViewMode}::${language}::${code}`
+  const html =
+    highlightedHtml && highlightedHtml.startsWith(`<!--${blockKey}-->`)
+      ? highlightedHtml.slice(blockKey.length + 7)
+      : plainHtml
 
   useEffect(() => {
     let cancelled = false
-    setHtml(getPlainCodeHtml(code))
 
     void highlightCodeToHtml(code, normalizeHighlightLanguage(language), assistantViewMode).then(
       (result) => {
-        if (!cancelled) setHtml(result)
+        if (!cancelled) setHighlightedHtml(`<!--${blockKey}-->${result}`)
       }
     )
 
     return () => {
       cancelled = true
     }
-  }, [assistantViewMode, code, language])
+  }, [assistantViewMode, blockKey, code, language])
 
   const copyCode = async (): Promise<void> => {
     try {
@@ -131,7 +140,11 @@ function CodeBlock({
           <span className="message-code-language">{languageLabel}</span>
         </div>
         <div className="message-code-actions">
-          <button className="message-code-copy" type="button" onClick={() => setWrapLines((value) => !value)}>
+          <button
+            className="message-code-copy"
+            type="button"
+            onClick={() => setWrapLines((value) => !value)}
+          >
             {wrapLines ? t.unwrapCode : t.wrapCode}
           </button>
           <button className="message-code-copy" type="button" onClick={() => void copyCode()}>
@@ -182,7 +195,10 @@ function TableBlock({
           <thead>
             <tr>
               {headers.map((header, headerIndex) => (
-                <th key={`header_${headerIndex}`} style={{ textAlign: alignments[headerIndex] ?? 'left' }}>
+                <th
+                  key={`header_${headerIndex}`}
+                  style={{ textAlign: alignments[headerIndex] ?? 'left' }}
+                >
                   {renderInlineContent(header)}
                 </th>
               ))}
@@ -192,7 +208,10 @@ function TableBlock({
             {rows.map((row, rowIndex) => (
               <tr key={`row_${rowIndex}`}>
                 {row.map((cell, cellIndex) => (
-                  <td key={`cell_${rowIndex}_${cellIndex}`} style={{ textAlign: alignments[cellIndex] ?? 'left' }}>
+                  <td
+                    key={`cell_${rowIndex}_${cellIndex}`}
+                    style={{ textAlign: alignments[cellIndex] ?? 'left' }}
+                  >
                     {renderInlineContent(cell)}
                   </td>
                 ))}
@@ -255,7 +274,10 @@ function MessageContent({
           return (
             <ListTag key={`list_${index}`} className="message-list">
               {block.items.map((item, itemIndex) => (
-                <li key={`item_${itemIndex}`} className={item.checked !== undefined ? 'task-item' : ''}>
+                <li
+                  key={`item_${itemIndex}`}
+                  className={item.checked !== undefined ? 'task-item' : ''}
+                >
                   {item.checked !== undefined && (
                     <input type="checkbox" checked={item.checked} readOnly tabIndex={-1} />
                   )}
@@ -431,11 +453,7 @@ export function ChatPanel({
                 {copiedMessageId === message.id ? t.copied : t.copyMessage}
               </button>
             </div>
-            <MessageContent
-              content={message.content}
-              t={t}
-              assistantViewMode={assistantViewMode}
-            />
+            <MessageContent content={message.content} t={t} assistantViewMode={assistantViewMode} />
             {renderMediaActions([...(message.mediaLinks ?? []), ...(message.media ?? [])])}
           </article>
         ))}
@@ -481,7 +499,12 @@ export function ChatPanel({
           </div>
         )}
         <form className="composer" onSubmit={(event) => void sendPrompt(event)}>
-          <button className="attach-button" type="button" title={t.attachFile} onClick={() => void selectFiles()}>
+          <button
+            className="attach-button"
+            type="button"
+            title={t.attachFile}
+            onClick={() => void selectFiles()}
+          >
             +
           </button>
           <input

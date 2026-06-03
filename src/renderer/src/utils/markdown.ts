@@ -36,13 +36,13 @@ function mergeAdjacentTextTokens(tokens: InlineToken[]): InlineToken[] {
 }
 
 export function unescapeMarkdownText(text: string): string {
-  return text.replace(/\\([\\`*_~{}\[\]()#+\-.!|>])/g, '$1')
+  return text.replace(/\\([\\`*_~{}[\]()#+\-.!|>])/g, '$1')
 }
 
 export function parseLinkTokens(segment: string): InlineToken[] {
   const tokens: InlineToken[] = []
   const pattern =
-    /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|<((?:file:\/\/\/|https?:\/\/)[^>]+)>|(?:file:\/\/\/[^\s)]+|https?:\/\/[^\s)]+|[A-Za-z]:\\(?:[^<>:"/\\|?*\n\s\[\]()]+\\)*[^<>:"/\\|?*\n\s\[\](),;:]+)/g
+    /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|<((?:file:\/\/\/|https?:\/\/)[^>]+)>|(?:file:\/\/\/[^\s)]+|https?:\/\/[^\s)]+|[A-Za-z]:\\(?:[^<>:"/\\|?*\n\s[()]+\\)*[^<>:"/\\|?*\n\s[\](),;:]+)/g
   let lastIndex = 0
 
   for (const match of segment.matchAll(pattern)) {
@@ -194,7 +194,8 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       continue
     }
 
-    const setextHeadingMatch = index + 1 < lines.length ? lines[index + 1].trim().match(/^(=+|-+)\s*$/) : null
+    const setextHeadingMatch =
+      index + 1 < lines.length ? lines[index + 1].trim().match(/^(=+|-+)\s*$/) : null
     if (setextHeadingMatch && trimmed) {
       blocks.push({
         type: 'heading',
@@ -293,9 +294,7 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
         (index + 1 < lines.length && /^(=+|-+)\s*$/.test(lines[index + 1].trim())) ||
         /^(?:---|\*\*\*|___)\s*$/.test(currentTrimmed) ||
         /^(```+|~~~+)/.test(currentTrimmed) ||
-        (index + 1 < lines.length &&
-          isTableLine(current) &&
-          isTableSeparator(lines[index + 1])) ||
+        (index + 1 < lines.length && isTableLine(current) && isTableSeparator(lines[index + 1])) ||
         /^>\s?/.test(currentTrimmed) ||
         /^([-*+])\s+/.test(currentTrimmed) ||
         /^\d+[.)]\s+/.test(currentTrimmed)

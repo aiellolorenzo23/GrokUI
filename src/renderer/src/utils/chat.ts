@@ -179,7 +179,10 @@ export function extractMediaLinks(text: string): string[] {
   return Array.from(new Set((matches ?? []).map(normalizeMediaLink)))
 }
 
-export function appendMediaToLastAssistant(messages: ChatMessage[], media: string[]): ChatMessage[] {
+export function appendMediaToLastAssistant(
+  messages: ChatMessage[],
+  media: string[]
+): ChatMessage[] {
   if (media.length === 0) return messages
 
   const lastAssistantIndex = messages.findLastIndex((message) => message.role === 'assistant')

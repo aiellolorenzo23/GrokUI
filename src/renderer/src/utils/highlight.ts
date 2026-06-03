@@ -48,7 +48,7 @@ const cacheLimit = 120
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined
 const highlightedHtmlCache = new Map<string, string>()
 
-function getHighlighter() {
+function getHighlighter(): ReturnType<typeof createHighlighter> {
   highlighterPromise ??= createHighlighter({
     themes: ['github-dark', 'nord'],
     langs: [...supportedLanguages]
@@ -98,34 +98,45 @@ export function normalizeHighlightLanguage(language: string): SupportedLanguage 
 }
 
 function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 export function inferHighlightLanguage(code: string): SupportedLanguage {
   const trimmed = code.trim()
   if (!trimmed) return 'text'
-  if (/^[\[{]/.test(trimmed) && /["'][^"']+["']\s*:/.test(trimmed)) return 'json'
-  if (/^(diff|index\s+\w|\+\+\+|---|\@\@)/m.test(trimmed)) return 'diff'
+  if (/^[[{]/.test(trimmed) && /["'][^"']+["']\s*:/.test(trimmed)) return 'json'
+  if (/^(diff|index\s+\w|\+\+\+|---|@@)/m.test(trimmed)) return 'diff'
   if (/^(FROM|RUN|CMD|COPY|ADD|WORKDIR|ENTRYPOINT|ENV)\b/m.test(trimmed)) return 'dockerfile'
   if (/^(version|services|volumes|networks)\s*:/m.test(trimmed)) return 'yaml'
   if (/^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/im.test(trimmed)) return 'sql'
   if (/^(#{1,6}\s+.+|>\s+.+|[-*+]\s+.+|```|~~~)/m.test(trimmed)) return 'markdown'
-  if (/^(Get-|Set-|New-|Remove-|Write-|Start-|Stop-|Test-|Import-|Export-|\$env:|param\s*\()/m.test(trimmed))
+  if (
+    /^(Get-|Set-|New-|Remove-|Write-|Start-|Stop-|Test-|Import-|Export-|\$env:|param\s*\()/m.test(
+      trimmed
+    )
+  )
     return 'powershell'
   if (/^(#!\/.*\b(?:bash|sh|zsh)|\$ |npm |pnpm |yarn |git |cd |ls\b|echo\s+|cat\s+)/m.test(trimmed))
     return 'bash'
-  if (/^\s*[A-Za-z0-9_.-]+\s*=\s*.+$/m.test(trimmed) && /^\s*\[[A-Za-z0-9_.-]+\]\s*$/m.test(trimmed))
+  if (
+    /^\s*[A-Za-z0-9_.-]+\s*=\s*.+$/m.test(trimmed) &&
+    /^\s*\[[A-Za-z0-9_.-]+\]\s*$/m.test(trimmed)
+  )
     return 'toml'
-  if (/^\[[^\]\n]+\]\s*$/.test(trimmed) || /^\s*[A-Za-z0-9_.-]+\s*=\s*.+$/m.test(trimmed)) return 'ini'
+  if (/^\[[^\]\n]+\]\s*$/.test(trimmed) || /^\s*[A-Za-z0-9_.-]+\s*=\s*.+$/m.test(trimmed))
+    return 'ini'
   if (/^\s*<\?xml\b|^\s*<(svg|rss|feed|\w+:[\w-]+)\b/im.test(trimmed)) return 'xml'
   if (/^(<!DOCTYPE|<html\b|<div\b|<svg\b|<\w+)/im.test(trimmed)) return 'html'
   if (/^(\s{0,2}[-\w]+:\s.+|\s*-\s+\w+)/m.test(trimmed)) return 'yaml'
-  if (/\binterface\s+\w+|\btype\s+\w+\s*=|:\s*(string|number|boolean|unknown|never|void)\b/.test(trimmed))
+  if (
+    /\binterface\s+\w+|\btype\s+\w+\s*=|:\s*(string|number|boolean|unknown|never|void)\b/.test(
+      trimmed
+    )
+  )
     return 'typescript'
-  if (/\bimport\s+[\w{},*\s]+\s+from\s+['"]|export\s+(default|const|function|class)\b/.test(trimmed))
+  if (
+    /\bimport\s+[\w{},*\s]+\s+from\s+['"]|export\s+(default|const|function|class)\b/.test(trimmed)
+  )
     return 'javascript'
   if (/^\s*(def|class)\s+\w+|^\s*from\s+\w+\s+import\s+|^\s*print\(/m.test(trimmed)) return 'python'
   return 'text'

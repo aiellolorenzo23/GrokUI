@@ -45,7 +45,9 @@ describe('getHighlightLanguageLabel', () => {
 
 describe('getPlainCodeHtml', () => {
   it('escapes html in fallback code markup', () => {
-    expect(getPlainCodeHtml('<script>alert(1)</script>')).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
+    expect(getPlainCodeHtml('<script>alert(1)</script>')).toContain(
+      '&lt;script&gt;alert(1)&lt;/script&gt;'
+    )
   })
 })
 
