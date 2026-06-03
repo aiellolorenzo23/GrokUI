@@ -29,7 +29,7 @@ L'app avvia i comandi `grok` e `agent` dietro le quinte, senza finestre CMD visi
 - rinomina locale delle sessioni
 - nascondi sessione solo nella UI
 - assegnazione locale di sessioni alla sezione Agent
-- apertura immagini/video generati tramite pulsanti `View Image` e `View Video`
+- apertura di immagini/video generati tramite pulsanti localizzati in base alla lingua del sistema
 - allegati file tramite bottone `+`
 - drag and drop di file nella chat
 - chip rimovibili per i file allegati prima dell'invio
@@ -58,7 +58,7 @@ K:\AI\ComfyUI\output\Grok_Porn_00031.png
 
 ## Requisiti
 
-- Node.js
+- Node.js 20 o superiore
 - Grok CLI installata localmente
 - comandi `grok` e `agent` disponibili da terminale
 - login/configurazione della CLI gia completati, se richiesti
@@ -83,7 +83,7 @@ npm install
 npm run dev
 ```
 
-Di default l'app usa `C:\Users\lollo` come working directory iniziale, cosi puo vedere le sessioni avviate dalla home. Puoi cambiarla dalla sidebar.
+Di default l'app usa la home directory reale del sistema come working directory iniziale, cosi puo vedere le sessioni avviate dalla home. Puoi cambiarla dalla sidebar.
 
 ## Build
 
@@ -117,6 +117,8 @@ Build non impacchettata:
 npm run build:unpack
 ```
 
+Nota: `build:win` esegue prima `npm run build` (icone, typecheck e build Electron), mentre `build:mac` e `build:linux` al momento eseguono direttamente `electron-vite build` prima del packaging. Se vuoi un comportamento uniforme, conviene allineare anche questi script.
+
 ## Script Utili
 
 - `npm run dev`: avvia l'app in sviluppo
@@ -147,6 +149,13 @@ npm run build:unpack
 - La separazione tra `grok` e `agent` nella sidebar e gestita dalla UI, mentre l'esecuzione viene delegata ai rispettivi comandi CLI.
 - Rinomina e nascondi sessione sono preferenze locali dell'app, non modifiche permanenti nella CLI.
 - I file allegati non vengono copiati: Grok riceve il path locale come testo.
+
+## Limitazioni
+
+- GrokUI dipende completamente dalle funzionalita e dal comportamento della CLI installata localmente.
+- I file allegati non vengono caricati dall'app: viene inviato solo il path locale come testo.
+- Le sessioni visibili possono cambiare in base alla working directory usata con `grok` o `agent`.
+- Il comportamento di alcune funzioni puo cambiare se cambia la CLI sottostante.
 
 ## English
 
@@ -179,7 +188,7 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - local session rename
 - hide sessions locally in the UI
 - local assignment of sessions to the Agent section
-- open generated images/videos through `View Image` and `View Video` buttons
+- open generated images/videos through buttons localized to the system language
 - file attachments through the composer `+` button
 - drag and drop files into the chat
 - removable attachment chips before sending
@@ -195,20 +204,20 @@ Example:
 ```text
 Can you use this image as a reference?
 
-File allegati:
+File attachments:
 K:\AI\ComfyUI\output\Grok_Porn_00031.png
 ```
 
 You can also send only a file without extra text:
 
 ```text
-File allegati:
+File attachments:
 K:\AI\ComfyUI\output\Grok_Porn_00031.png
 ```
 
 ### Requirements
 
-- Node.js
+- Node.js 20 or later
 - Grok CLI installed locally
 - `grok` and `agent` commands available from the terminal
 - CLI login/configuration already completed, if required
@@ -233,7 +242,7 @@ npm install
 npm run dev
 ```
 
-By default, the app uses `C:\Users\lollo` as the initial working directory so it can discover sessions started from the home folder. You can change it from the sidebar.
+By default, the app uses the real system home directory as the initial working directory so it can discover sessions started from the home folder. You can change it from the sidebar.
 
 ### Build
 
@@ -267,6 +276,8 @@ Unpacked build:
 npm run build:unpack
 ```
 
+Note: `build:win` runs `npm run build` first (icons, typecheck, and Electron build), while `build:mac` and `build:linux` currently run `electron-vite build` directly before packaging. If you want consistent behavior, align those scripts as well.
+
 ### Useful Scripts
 
 - `npm run dev`: start the app in development mode
@@ -297,3 +308,10 @@ npm run build:unpack
 - The sidebar separates `grok` and `agent` in the UI, while execution is delegated to their respective CLI commands.
 - Rename and hide session actions are local app preferences, not permanent CLI changes.
 - Attached files are not copied: Grok receives the local path as plain text.
+
+### Limitations
+
+- GrokUI depends entirely on the features and behavior exposed by the locally installed CLI.
+- Attached files are not uploaded by the app: only the local path is sent as plain text.
+- Visible sessions may change depending on the working directory used with `grok` or `agent`.
+- Some app behavior may change when the underlying CLI changes.
