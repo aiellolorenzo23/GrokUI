@@ -17,6 +17,7 @@ L'app avvia i comandi `grok` e `agent` dietro le quinte, senza finestre CMD visi
 ## Funzionalita'
 
 - UI desktop scura ispirata a Grok browser
+- lingua UI sincronizzata con la lingua del sistema (`it`/`en`, fallback a inglese)
 - sidebar collassabile
 - sezioni separate per `grok` e `agent`
 - recupero sessioni esistenti tramite `grok sessions list` e `agent sessions list`
@@ -55,6 +56,13 @@ Puoi anche inviare solo un file senza testo:
 File allegati:
 K:\AI\ComfyUI\output\Grok_Porn_00031.png
 ```
+
+## Modalita'
+
+- `grok`: chat diretta con Grok tramite la CLI locale
+- `agent`: workflow piu guidato per task multi-step tramite Agent CLI
+
+La distinzione e di esperienza d'uso e di comando CLI sottostante. GrokUI non converte automaticamente una sessione `grok` in una sessione `agent`: l'assegnazione alla sezione Agent nella sidebar resta una preferenza locale della UI.
 
 ## Requisiti
 
@@ -156,6 +164,7 @@ Nota: `build:win` esegue prima `npm run build` (icone, typecheck e build Electro
 - I file allegati non vengono caricati dall'app: viene inviato solo il path locale come testo.
 - Le sessioni visibili possono cambiare in base alla working directory usata con `grok` o `agent`.
 - Il comportamento di alcune funzioni puo cambiare se cambia la CLI sottostante.
+- Il renderer dei messaggi e ancora testuale: supporta bene testo e ritorni a capo, ma non rende ancora markdown avanzato o blocchi di codice strutturati.
 
 ## English
 
@@ -176,6 +185,7 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 ### Features
 
 - dark desktop UI inspired by Grok in the browser
+- UI language synced with the system language (`it`/`en`, English fallback)
 - collapsible sidebar
 - separate `grok` and `agent` sections
 - existing session discovery via `grok sessions list` and `agent sessions list`
@@ -214,6 +224,13 @@ You can also send only a file without extra text:
 File attachments:
 K:\AI\ComfyUI\output\Grok_Porn_00031.png
 ```
+
+### Modes
+
+- `grok`: direct chat with Grok through the local CLI
+- `agent`: a more guided workflow for multi-step tasks through Agent CLI
+
+The distinction is based on UX and the underlying CLI command. GrokUI does not automatically convert a `grok` session into an `agent` session: assigning a session to the Agent section in the sidebar remains a local UI preference.
 
 ### Requirements
 
@@ -315,3 +332,4 @@ Note: `build:win` runs `npm run build` first (icons, typecheck, and Electron bui
 - Attached files are not uploaded by the app: only the local path is sent as plain text.
 - Visible sessions may change depending on the working directory used with `grok` or `agent`.
 - Some app behavior may change when the underlying CLI changes.
+- The message renderer is still text-first: it handles plain text and line breaks well, but it does not yet render advanced markdown or structured code blocks.
