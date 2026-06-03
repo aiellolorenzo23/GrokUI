@@ -178,7 +178,7 @@ export function mediaPreviewSrc(path: string): string {
 
 export function extractMediaLinks(text: string): string[] {
   const matches = text.match(
-    /(?:file:\/\/\/[^\s)]+|[A-Za-z]:\\[^\n"']+\.(?:png|jpe?g|webp|gif|mp4|webm)|https?:\/\/[^\s)]+\.(?:png|jpe?g|webp|gif|mp4|webm))/gi
+    /(?:file:\/\/\/[^\s)]+|[A-Za-z]:\\[^\n"']+\.[A-Za-z0-9]{1,12}|https?:\/\/[^\s)]+\.[A-Za-z0-9]{1,12}(?:[?#][^\s)]*)?)/gi
   )
 
   return Array.from(new Set((matches ?? []).map(normalizeMediaLink)))

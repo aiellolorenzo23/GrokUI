@@ -18,7 +18,167 @@ import {
   normalizeHighlightLanguage
 } from '../utils/highlight'
 import { parseInlineTokens, parseMarkdownBlocks, unescapeMarkdownText } from '../utils/markdown'
-import { mediaPreviewSrc, mediaTypeFromPath } from '../utils/chat'
+import { displayNameFromPath, extensionFromPath, mediaPreviewSrc, mediaTypeFromPath } from '../utils/chat'
+
+function renderGenericFileIcon(path: string): React.JSX.Element {
+  const extension = extensionFromPath(path)
+
+  if (['html', 'htm'].includes(extension)) {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path
+          d="M4 3.75A1.75 1.75 0 0 1 5.75 2h5.28c.46 0 .9.18 1.22.5l2.25 2.25c.32.32.5.76.5 1.22v8.28A1.75 1.75 0 0 1 13.25 16H5.75A1.75 1.75 0 0 1 4 14.25V3.75Zm7 .25v2a1 1 0 0 0 1 1h2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="m7.1 8.2 1.7 1.8-1.7 1.8M12.9 8.2 11.2 10l1.7 1.8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    )
+  }
+
+  if (extension === 'pdf') {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path
+          d="M4 3.75A1.75 1.75 0 0 1 5.75 2h5.28c.46 0 .9.18 1.22.5l2.25 2.25c.32.32.5.76.5 1.22v8.28A1.75 1.75 0 0 1 13.25 16H5.75A1.75 1.75 0 0 1 4 14.25V3.75Zm7 .25v2a1 1 0 0 0 1 1h2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M6.9 12.5V8.3h1.35c.85 0 1.4.45 1.4 1.14 0 .72-.55 1.16-1.4 1.16H7.9M10.8 12.5V8.3h1.05c1.22 0 1.95.77 1.95 2.08 0 1.33-.73 2.12-1.95 2.12H10.8ZM8 10.6h.3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.15"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    )
+  }
+
+  if (['txt', 'md', 'doc', 'docx', 'rtf'].includes(extension)) {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path
+          d="M4 3.75A1.75 1.75 0 0 1 5.75 2h5.28c.46 0 .9.18 1.22.5l2.25 2.25c.32.32.5.76.5 1.22v8.28A1.75 1.75 0 0 1 13.25 16H5.75A1.75 1.75 0 0 1 4 14.25V3.75Zm7 .25v2a1 1 0 0 0 1 1h2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M7 8.75h5.5M7 10.5h5.5M7 12.25h4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+        />
+      </svg>
+    )
+  }
+
+  if (['xls', 'xlsx', 'csv'].includes(extension)) {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path
+          d="M4 3.75A1.75 1.75 0 0 1 5.75 2h5.28c.46 0 .9.18 1.22.5l2.25 2.25c.32.32.5.76.5 1.22v8.28A1.75 1.75 0 0 1 13.25 16H5.75A1.75 1.75 0 0 1 4 14.25V3.75Zm7 .25v2a1 1 0 0 0 1 1h2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M7.1 8.6h5.8M7.1 11.2h5.8M9.3 8.6v5.1"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      </svg>
+    )
+  }
+
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path
+          d="M4 3.75A1.75 1.75 0 0 1 5.75 2h5.28c.46 0 .9.18 1.22.5l2.25 2.25c.32.32.5.76.5 1.22v8.28A1.75 1.75 0 0 1 13.25 16H5.75A1.75 1.75 0 0 1 4 14.25V3.75Zm7 .25v2a1 1 0 0 0 1 1h2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M10 7.9v1.1M10 9.8v1.1M10 11.7v1.1M9 13.5h2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    )
+  }
+
+  if (['js', 'ts', 'tsx', 'jsx', 'css', 'json', 'py', 'java', 'cpp', 'c', 'cs', 'php'].includes(extension)) {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path
+          d="M4 3.75A1.75 1.75 0 0 1 5.75 2h5.28c.46 0 .9.18 1.22.5l2.25 2.25c.32.32.5.76.5 1.22v8.28A1.75 1.75 0 0 1 13.25 16H5.75A1.75 1.75 0 0 1 4 14.25V3.75Zm7 .25v2a1 1 0 0 0 1 1h2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="m7.2 8.6-1.5 1.6 1.5 1.6M12.8 8.6l1.5 1.6-1.5 1.6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 20 20" focusable="false">
+      <path
+        d="M4 3.75A1.75 1.75 0 0 1 5.75 2h5.28c.46 0 .9.18 1.22.5l2.25 2.25c.32.32.5.76.5 1.22v8.28A1.75 1.75 0 0 1 13.25 16H5.75A1.75 1.75 0 0 1 4 14.25V3.75Zm7 .25v2a1 1 0 0 0 1 1h2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 12.1h6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
 
 function renderInlineContent(text: string): React.JSX.Element[] {
   return parseInlineTokens(unescapeMarkdownText(text)).map((token, index) =>
@@ -266,7 +426,13 @@ function MessageMediaGallery({
               <video src={mediaPreviewSrc(item.link)} muted playsInline preload="metadata" />
             ) : (
               <div className="message-media-file-fallback">
-                {item.link.split(/[\\/]/).pop() ?? item.link}
+                <span className={`message-media-file-glyph ext-${extensionFromPath(item.link)}`}>
+                  {renderGenericFileIcon(item.link)}
+                </span>
+                <strong>{displayNameFromPath(item.link)}</strong>
+                <span className="message-media-file-extension">
+                  {extensionFromPath(item.link) || 'file'}
+                </span>
               </div>
             )}
           </button>
@@ -309,7 +475,14 @@ function MessageMediaGallery({
                     </svg>
                   ) : (
                     <svg viewBox="0 0 16 16" focusable="false">
-                      <circle cx="8" cy="8" r="2" fill="currentColor" />
+                      <path
+                        d="M3 2.75A1.75 1.75 0 0 1 4.75 1h4.66c.46 0 .9.18 1.22.5l1.87 1.87c.32.32.5.76.5 1.22v6.66A1.75 1.75 0 0 1 11.25 13h-6.5A1.75 1.75 0 0 1 3 11.25v-8.5Zm5.5-.25v1.5a1 1 0 0 0 1 1H11"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   )}
                 </span>
