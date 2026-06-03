@@ -1,12 +1,26 @@
 import { useState, type DragEvent, type FormEvent, type RefObject } from 'react'
 import type { CliMode } from '../../../shared/types'
-import type { AttachedFile, ChatMessage, ConversationState } from '../appTypes'
+import type { AssistantViewMode, AttachedFile, ChatMessage, ConversationState } from '../appTypes'
 import type { Dictionary } from '../i18n'
+
+type CodeToken = {
+  text: string
+  kind:
+    | 'plain'
+    | 'comment'
+    | 'string'
+    | 'number'
+    | 'keyword'
+    | 'operator'
+    | 'property'
+    | 'command'
+}
 
 type InlineToken =
   | { type: 'text'; value: string }
   | { type: 'code'; value: string }
   | { type: 'strong'; value: string }
+  | { type: 'link'; value: string; target: string }
 
 type MarkdownBlock =
   | { type: 'heading'; level: number; text: string }
@@ -24,11 +38,38 @@ function parseStyledSegment(segment: string): InlineToken[] {
   for (const match of segment.matchAll(pattern)) {
     const index = match.index ?? 0
     if (index > lastIndex) {
-      tokens.push({ type: 'text', value: segment.slice(lastIndex, index) })
+      tokens.push(...parseLinkTokens(segment.slice(lastIndex, index)))
     }
 
     tokens.push({ type: 'strong', value: match[2] })
     lastIndex = index + match[0].length
+  }
+
+  if (lastIndex < segment.length) {
+    tokens.push(...parseLinkTokens(segment.slice(lastIndex)))
+  }
+
+  return tokens.length > 0 ? tokens : [{ type: 'text', value: segment }]
+}
+
+function parseLinkTokens(segment: string): InlineToken[] {
+  const tokens: InlineToken[] = []
+  const pattern =
+    /(?:file:\/\/\/[^\s)]+|https?:\/\/[^\s)]+|[A-Za-z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]+)/g
+  let lastIndex = 0
+
+  for (const match of segment.matchAll(pattern)) {
+    const index = match.index ?? 0
+    if (index > lastIndex) {
+      tokens.push({ type: 'text', value: segment.slice(lastIndex, index) })
+    }
+
+    const rawTarget = match[0]
+    const target = rawTarget.replace(/[),.;]+$/g, '')
+    const trailing = rawTarget.slice(target.length)
+    tokens.push({ type: 'link', value: target, target })
+    if (trailing) tokens.push({ type: 'text', value: trailing })
+    lastIndex = index + rawTarget.length
   }
 
   if (lastIndex < segment.length) {
@@ -64,6 +105,15 @@ function renderInlineContent(text: string): React.JSX.Element[] {
   return parseInlineTokens(text).map((token, index) =>
     token.type === 'code' ? (
       <code key={`${token.type}_${index}`}>{token.value}</code>
+    ) : token.type === 'link' ? (
+      <button
+        key={`${token.type}_${index}`}
+        type="button"
+        className="message-inline-link"
+        onClick={() => void window.api.openMedia(token.target)}
+      >
+        {token.value}
+      </button>
     ) : token.type === 'strong' ? (
       <strong key={`${token.type}_${index}`}>{token.value}</strong>
     ) : (
@@ -88,6 +138,74 @@ function parseTableRow(line: string): string[] {
     .replace(/\|$/, '')
     .split('|')
     .map((cell) => cell.trim())
+}
+
+function inferCodeLanguage(language: string, code: string): string {
+  if (language) return language.toLowerCase()
+  if (/^\s*[{[]/.test(code)) return 'json'
+  if (/^\s*(Get-|Set-|New-|Write-|Select-)/m.test(code)) return 'powershell'
+  if (/^\s*(const|let|function|import|export)\s/m.test(code)) return 'typescript'
+  if (/^\s*(def |import |from )/m.test(code)) return 'python'
+  return 'text'
+}
+
+function classifyCodeSegment(segment: string, language: string): CodeToken['kind'] {
+  const normalized = language.toLowerCase()
+  if (/^\s*(\/\/|#)/.test(segment)) return 'comment'
+  if (/^".*"|'[^']*'$|^`[^`]*`$/.test(segment)) return 'string'
+  if (/^\d+(?:\.\d+)?$/.test(segment)) return 'number'
+  if (/^[{}()[\].,:;]+$/.test(segment)) return 'operator'
+  if (normalized === 'json' && /^[A-Za-z_][\w-]*$/.test(segment)) return 'property'
+  if (
+    /^(const|let|var|function|return|if|else|for|while|import|export|from|async|await|class|new|true|false|null|undefined|try|catch|throw|type|interface)$/.test(
+      segment
+    )
+  )
+    return 'keyword'
+  if (
+    normalized === 'powershell' &&
+    /^(Get|Set|New|Write|Select|Where|ForEach|ConvertTo|ConvertFrom)-[\w-]+$/.test(segment)
+  )
+    return 'command'
+  if (
+    normalized === 'bash' &&
+    /^(echo|cat|ls|cd|npm|node|git|pnpm|yarn|mkdir|rm|cp|mv)$/.test(segment)
+  )
+    return 'command'
+
+  return 'plain'
+}
+
+function tokenizeCodeLine(line: string, language: string): CodeToken[] {
+  const pattern =
+    /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|\/\/.*$|#.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][\w-]*\b|[{}()[\].,:;=+\-/*<>!?|&]+|\s+/gm
+  const parts = line.match(pattern)
+  if (!parts) return [{ text: line, kind: 'plain' }]
+
+  return parts.map((part) => ({
+    text: part,
+    kind: /^\s+$/.test(part) ? 'plain' : classifyCodeSegment(part, language)
+  }))
+}
+
+function HighlightedCode({ code, language }: { code: string; language: string }): React.JSX.Element {
+  const normalizedLanguage = inferCodeLanguage(language, code)
+  const lines = code.split('\n')
+
+  return (
+    <code>
+      {lines.map((line, lineIndex) => (
+        <span key={`line_${lineIndex}`} className="code-line">
+          {tokenizeCodeLine(line, normalizedLanguage).map((token, tokenIndex) => (
+            <span key={`token_${lineIndex}_${tokenIndex}`} className={`token-${token.kind}`}>
+              {token.text}
+            </span>
+          ))}
+          {lineIndex < lines.length - 1 && '\n'}
+        </span>
+      ))}
+    </code>
+  )
 }
 
 function parseMarkdownBlocks(content: string): MarkdownBlock[] {
@@ -243,7 +361,7 @@ function CodeBlock({
         </button>
       </div>
       <pre>
-        <code>{code}</code>
+        <HighlightedCode code={code} language={language} />
       </pre>
     </section>
   )
@@ -329,6 +447,7 @@ type ChatPanelProps = {
   showScrollBottom: boolean
   scrollToBottom: (behavior?: ScrollBehavior) => void
   renderMediaActions: (links: string[]) => React.JSX.Element | undefined
+  assistantViewMode: AssistantViewMode
   messages: ChatMessage[]
   attachedFiles: AttachedFile[]
   removeAttachedFile: (path: string) => void
@@ -358,6 +477,7 @@ export function ChatPanel({
   showScrollBottom,
   scrollToBottom,
   renderMediaActions,
+  assistantViewMode,
   messages,
   attachedFiles,
   removeAttachedFile,
@@ -375,7 +495,11 @@ export function ChatPanel({
 }: ChatPanelProps): React.JSX.Element {
   return (
     <section
-      className={isDraggingFile ? 'chat-surface dragging-file' : 'chat-surface'}
+      className={
+        isDraggingFile
+          ? `chat-surface dragging-file assistant-view-${assistantViewMode}`
+          : `chat-surface assistant-view-${assistantViewMode}`
+      }
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
@@ -418,7 +542,14 @@ export function ChatPanel({
         )}
 
         {messages.map((message) => (
-          <article key={message.id} className={`chat-message ${message.role}`}>
+          <article
+            key={message.id}
+            className={
+              message.role === 'assistant'
+                ? `chat-message ${message.role} ${assistantViewMode === 'cli' ? 'cli-like' : 'grokui-like'}`
+                : `chat-message ${message.role}`
+            }
+          >
             <div className="message-author">
               {message.role === 'user' ? t.you : message.role === 'assistant' ? mode : t.system}
             </div>

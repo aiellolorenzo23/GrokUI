@@ -24,10 +24,12 @@ L'app avvia i comandi `grok` e `agent` dietro le quinte, senza finestre CMD visi
 - apertura transcript tramite `grok export` e `agent export`
 - output streaming renderizzato come chat
 - renderer messaggi con paragrafi markdown, inline code, liste, citazioni e code block con triple backtick
+- syntax highlighting leggero nei code block
 - indicatore di risposta in corso nella conversazione
 - stop della generazione in corso
 - working directory configurabile
 - modello configurabile, se supportato dalla CLI
+- switch tra stile visivo `GrokUI` e stile `CLI` per i messaggi assistant
 - rinomina locale delle sessioni
 - nascondi sessione solo nella UI
 - assegnazione locale di sessioni alla sezione Agent
@@ -193,10 +195,12 @@ The app starts `grok` and `agent` commands behind the scenes, without visible CM
 - transcript loading via `grok export` and `agent export`
 - streaming output rendered as chat messages
 - message renderer with markdown paragraphs, inline code, lists, quotes, and triple-backtick code blocks
+- lightweight syntax highlighting in code blocks
 - in-chat pending response indicator
 - stop current generation
 - configurable working directory
 - configurable model, when supported by the CLI
+- switch between `GrokUI` and `CLI` visual styles for assistant messages
 - local session rename
 - hide sessions locally in the UI
 - local assignment of sessions to the Agent section

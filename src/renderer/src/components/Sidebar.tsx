@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { CliMode, CliSession } from '../../../shared/types'
+import type { AssistantViewMode } from '../appTypes'
 import type { Dictionary } from '../i18n'
 
 type SidebarProps = {
@@ -15,6 +16,8 @@ type SidebarProps = {
   setCwd: (cwd: string) => void
   model: string
   setModel: (model: string) => void
+  assistantViewMode: AssistantViewMode
+  setAssistantViewMode: (mode: AssistantViewMode) => void
   visibleSessions: Record<CliMode, CliSession[]>
   renderSession: (targetMode: CliMode, session: CliSession) => React.JSX.Element
   onHide: () => void
@@ -33,6 +36,8 @@ export function Sidebar({
   setCwd,
   model,
   setModel,
+  assistantViewMode,
+  setAssistantViewMode,
   visibleSessions,
   renderSession,
   onHide
@@ -81,6 +86,25 @@ export function Sidebar({
             onChange={(event) => setModel(event.target.value)}
           />
         </label>
+        <div className="settings-toggle">
+          <span>{t.assistantStyle}</span>
+          <div className="segmented-toggle" role="tablist" aria-label={t.assistantStyle}>
+            <button
+              type="button"
+              className={assistantViewMode === 'grokui' ? 'active' : ''}
+              onClick={() => setAssistantViewMode('grokui')}
+            >
+              {t.grokUiStyle}
+            </button>
+            <button
+              type="button"
+              className={assistantViewMode === 'cli' ? 'active' : ''}
+              onClick={() => setAssistantViewMode('cli')}
+            >
+              {t.cliStyle}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="history">

@@ -5,7 +5,13 @@ import { ChatPanel } from './components/ChatPanel'
 import { RenameDialog } from './components/RenameDialog'
 import { SessionContextMenu } from './components/SessionContextMenu'
 import { Sidebar } from './components/Sidebar'
-import { initialConversations, type AttachedFile, type ContextMenuState, type RenameState } from './appTypes'
+import {
+  initialConversations,
+  type AssistantViewMode,
+  type AttachedFile,
+  type ContextMenuState,
+  type RenameState
+} from './appTypes'
 import { useAppPreferences } from './hooks/useAppPreferences'
 import { getDictionary } from './i18n'
 import {
@@ -491,6 +497,10 @@ function App(): React.JSX.Element {
     ? sessionTitle(selectedSession, prefs.aliases, t.sessionFallback(shortId(selectedSession.id)))
     : t.newConversation
 
+  const setAssistantViewMode = (assistantViewMode: AssistantViewMode): void => {
+    setPrefs((current) => ({ ...current, assistantViewMode }))
+  }
+
   return (
     <main className={isSidebarHidden ? 'grok-shell sidebar-collapsed' : 'grok-shell'}>
       <Sidebar
@@ -506,6 +516,8 @@ function App(): React.JSX.Element {
         setCwd={setCwd}
         model={model}
         setModel={setModel}
+        assistantViewMode={prefs.assistantViewMode}
+        setAssistantViewMode={setAssistantViewMode}
         visibleSessions={visibleSessions}
         renderSession={renderSession}
         onHide={() => setIsSidebarHidden(true)}
@@ -524,6 +536,7 @@ function App(): React.JSX.Element {
         showScrollBottom={showScrollBottom}
         scrollToBottom={scrollToBottom}
         renderMediaActions={renderMediaActions}
+        assistantViewMode={prefs.assistantViewMode}
         messages={activeConversation.messages}
         attachedFiles={attachedFiles}
         removeAttachedFile={removeAttachedFile}

@@ -33,7 +33,11 @@ export function normalizePrefs(value: unknown, defaults: SessionPrefs): SessionP
       record.aliases && typeof record.aliases === 'object' ? record.aliases : defaults.aliases,
     agentSessionIds: Array.isArray(record.agentSessionIds)
       ? record.agentSessionIds
-      : defaults.agentSessionIds
+      : defaults.agentSessionIds,
+    assistantViewMode:
+      record.assistantViewMode === 'cli' || record.assistantViewMode === 'grokui'
+        ? record.assistantViewMode
+        : defaults.assistantViewMode
   }
 }
 

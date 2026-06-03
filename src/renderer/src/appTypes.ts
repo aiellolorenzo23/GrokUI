@@ -1,5 +1,7 @@
 import type { CliMode, CliSession } from '../../shared/types'
 
+export type AssistantViewMode = 'grokui' | 'cli'
+
 export type ChatMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -18,6 +20,7 @@ export type SessionPrefs = {
   hidden: Record<CliMode, string[]>
   aliases: Record<string, string>
   agentSessionIds: string[]
+  assistantViewMode: AssistantViewMode
 }
 
 export type ContextMenuState = {
@@ -47,6 +50,7 @@ export function getDefaultPrefs(): SessionPrefs {
   return {
     hidden: { grok: [], agent: [] },
     aliases: {},
-    agentSessionIds: []
+    agentSessionIds: [],
+    assistantViewMode: 'grokui'
   }
 }
