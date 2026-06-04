@@ -48,6 +48,16 @@ import {
   getConversationRunMode,
   isMissingSessionError
 } from './utils/session'
+import {
+  applyContextUsageEvent,
+  applyErrorStreamEvent,
+  applyExitStreamEvent,
+  applySessionEndEvent,
+  applyTextStreamEvent,
+  createDraftConversationState,
+  getDraftConversationKey,
+  getSessionConversationKey
+} from './utils/sessionState'
 
 function mergeSessions(...groups: CliSession[][]): CliSession[] {
   return Array.from(new Map(groups.flat().map((session) => [session.id, session])).values())
@@ -64,18 +74,6 @@ function clampContextMenuPosition(x: number, y: number): { x: number; y: number 
   }
 }
 
-function getDraftConversationKey(mode: CliMode): string {
-  return `${mode}:draft`
-}
-
-function getSessionConversationKey(mode: CliMode, sessionId: string): string {
-  return `${mode}:session:${sessionId}`
-}
-
-function createEmptyConversationState(): ConversationState {
-  return { messages: [] }
-}
-
 function App(): React.JSX.Element {
   const [locale, setLocale] = useState(
     () => window.api.bootstrap.systemLocale || navigator.language || 'en'
@@ -89,8 +87,8 @@ function App(): React.JSX.Element {
   const [prompt, setPrompt] = useState('')
   const [sessions, setSessions] = useState<Record<CliMode, CliSession[]>>({ grok: [], agent: [] })
   const [conversations, setConversations] = useState<Record<string, ConversationState>>(() => ({
-    [getDraftConversationKey('grok')]: createEmptyConversationState(),
-    [getDraftConversationKey('agent')]: createEmptyConversationState()
+    [getDraftConversationKey('grok')]: createDraftConversationState(),
+    [getDraftConversationKey('agent')]: createDraftConversationState()
   }))
   const [activeConversationKeys, setActiveConversationKeys] = useState<Record<CliMode, string>>({
     grok: getDraftConversationKey('grok'),
@@ -112,7 +110,8 @@ function App(): React.JSX.Element {
   const initialRefreshDoneRef = useRef(false)
   const logoStyle = { '--logo': `url(${grokLogo})` } as CSSProperties
   const activeConversationKey = activeConversationKeys[mode]
-  const activeConversation = conversations[activeConversationKey] ?? createEmptyConversationState()
+  const activeConversation =
+    conversations[activeConversationKey] ?? createDraftConversationState()
   const t = useMemo(() => getDictionary(locale), [locale])
 
   useEffect(() => {
@@ -309,53 +308,36 @@ function App(): React.JSX.Element {
 
         if (data?.type === 'context-usage') {
           setConversations((current) => {
-            const key = findConversationKeyByRunId(current, event.mode, event.runId)
-            if (!key) return current
-            return {
-              ...current,
-              [key]: {
-                ...current[key],
-                contextUsage: data as unknown as CliContextUsage
-              }
-            }
+            return applyContextUsageEvent(
+              current,
+              event.mode,
+              event.runId,
+              data as unknown as CliContextUsage
+            )
           })
           return
         }
 
         if (data?.type === 'end' && sessionId) {
           setConversations((current) => {
-            const key = findConversationKeyByRunId(current, event.mode, event.runId)
-            if (!key) return current
-
-            const target = current[key]
-            const sessionKey = getSessionConversationKey(event.mode, sessionId)
-            const nextConversation = { ...target, activeSessionId: sessionId }
-
-            if (key === sessionKey) {
-              return { ...current, [key]: nextConversation }
-            }
-
-            const nextState = {
-              ...current,
-              [sessionKey]: nextConversation
-            }
-
-            delete nextState[key]
-
-            if (!nextState[getDraftConversationKey(event.mode)]) {
-              nextState[getDraftConversationKey(event.mode)] = createEmptyConversationState()
-            }
-
-            return nextState
+            const result = applySessionEndEvent(
+              current,
+              activeConversationKeys,
+              event.mode,
+              event.runId,
+              sessionId
+            )
+            return result.conversations
           })
 
           setActiveConversationKeys((current) => {
-            const key = findConversationKeyByRunId(conversations, event.mode, event.runId)
-            if (!key || current[event.mode] !== key) return current
-            return {
-              ...current,
-              [event.mode]: getSessionConversationKey(event.mode, sessionId)
-            }
+            return applySessionEndEvent(
+              conversations,
+              current,
+              event.mode,
+              event.runId,
+              sessionId
+            ).activeConversationKeys
           })
 
           void window.api.listSessionMedia(sessionId).then((media) => {
@@ -390,52 +372,30 @@ function App(): React.JSX.Element {
       setConversations((current) => {
         const key = findConversationKeyByRunId(current, event.mode, event.runId)
         if (!key) return current
-        const target = current[key]
 
         if (event.kind === 'text' || event.kind === 'stdout') {
-          const chunk = event.text ?? ''
-          const messages = [...target.messages]
-          const last = messages[messages.length - 1]
-
-          if (last?.role === 'assistant') {
-            const nextContent = `${last.content}${chunk}`
-            messages[messages.length - 1] = {
-              ...createChatMessage('assistant', nextContent, { id: last.id, media: last.media }),
-              media: last.media
-            }
-          } else {
-            messages.push(createChatMessage('assistant', chunk))
-          }
-
-          return { ...current, [key]: { ...target, messages } }
+          return applyTextStreamEvent(current, event.mode, event.runId, event.text ?? '')
         }
 
         if (event.kind === 'stderr' || event.kind === 'error') {
-          return {
-            ...current,
-            [key]: {
-              ...target,
-              messages: [
-                ...target.messages,
-                {
-                  ...createChatMessage(
-                    'system',
-                    event.text ?? getDictionary(localeRef.current).cliError
-                  )
-                }
-              ]
-            }
-          }
+          return applyErrorStreamEvent(
+            current,
+            event.mode,
+            event.runId,
+            getDictionary(localeRef.current).cliError,
+            event.text
+          )
         }
 
         if (event.kind === 'exit') {
+          const target = current[key]
           const sessionId = target.activeSessionId
           if (sessionId) {
             void window.api.listSessionMedia(sessionId).then((media) => {
               sessionMediaRef.current = { ...sessionMediaRef.current, [sessionId]: media }
             })
           }
-          return { ...current, [key]: { ...target, activeRunId: undefined } }
+          return applyExitStreamEvent(current, event.mode, event.runId)
         }
 
         return current
@@ -459,7 +419,7 @@ function App(): React.JSX.Element {
       const media = await window.api.listSessionMedia(session.id)
       setConversations((current) => ({
         ...current,
-        [conversationKey]:
+      [conversationKey]:
           current[conversationKey]?.activeRunId
             ? {
                 ...current[conversationKey],
@@ -487,7 +447,7 @@ function App(): React.JSX.Element {
     const draftKey = getDraftConversationKey(mode)
     setConversations((current) => ({
       ...current,
-      [draftKey]: createEmptyConversationState()
+      [draftKey]: createDraftConversationState()
     }))
     setActiveConversationKeys((current) => ({ ...current, [mode]: draftKey }))
     setPrompt('')
@@ -560,11 +520,11 @@ function App(): React.JSX.Element {
 
     setConversations((current) => ({
       ...current,
-      [activeConversationKey]: {
-        ...(current[activeConversationKey] ?? createEmptyConversationState()),
-        messages: [
-          ...(current[activeConversationKey]?.messages ?? []),
-          createChatMessage('user', outgoingPrompt)
+        [activeConversationKey]: {
+          ...(current[activeConversationKey] ?? createDraftConversationState()),
+          messages: [
+            ...(current[activeConversationKey]?.messages ?? []),
+            createChatMessage('user', outgoingPrompt)
         ]
       }
     }))
@@ -579,7 +539,7 @@ function App(): React.JSX.Element {
           setConversations((current) => ({
             ...current,
             [activeConversationKey]: {
-              ...(current[activeConversationKey] ?? createEmptyConversationState()),
+              ...(current[activeConversationKey] ?? createDraftConversationState()),
               sessionMode: resolvedMode
             }
           }))
@@ -598,7 +558,7 @@ function App(): React.JSX.Element {
       setConversations((current) => ({
         ...current,
         [activeConversationKey]: {
-          ...(current[activeConversationKey] ?? createEmptyConversationState()),
+          ...(current[activeConversationKey] ?? createDraftConversationState()),
           sessionCwd: current[activeConversationKey]?.sessionCwd ?? sessionCwd,
           sessionMode: current[activeConversationKey]?.sessionMode ?? resolvedMode,
           activeRunId: started.runId
