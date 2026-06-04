@@ -68,6 +68,11 @@ function createEmptyConversationState(): ConversationState {
   return { messages: [] }
 }
 
+function isMissingSessionError(reason: unknown): boolean {
+  const message = reason instanceof Error ? reason.message : String(reason)
+  return /session does not exist/i.test(message)
+}
+
 function findConversationKeyByRunId(
   conversations: Record<string, ConversationState>,
   mode: CliMode,
@@ -145,6 +150,26 @@ function App(): React.JSX.Element {
   const setLoading = (key: 'all' | CliMode, value: boolean): void => {
     setLoadingState((current) => ({ ...current, [key]: value }))
   }
+
+  const resolveSessionAccess = useCallback(
+    async (
+      preferredMode: CliMode,
+      sessionId: string,
+      sessionCwd: string
+    ): Promise<{ mode: CliMode; transcript: string }> => {
+      try {
+        const transcript = await window.api.exportSession(preferredMode, sessionCwd, sessionId)
+        return { mode: preferredMode, transcript }
+      } catch (reason) {
+        if (!isMissingSessionError(reason)) throw reason
+
+        const fallbackMode: CliMode = preferredMode === 'grok' ? 'agent' : 'grok'
+        const transcript = await window.api.exportSession(fallbackMode, sessionCwd, sessionId)
+        return { mode: fallbackMode, transcript }
+      }
+    },
+    []
+  )
 
   useEffect(() => {
     void Promise.all([window.api.getSystemLocale(), window.api.getHomeDir()]).then(
@@ -433,20 +458,33 @@ function App(): React.JSX.Element {
     setActiveConversationKeys((current) => ({ ...current, [targetMode]: conversationKey }))
 
     try {
-      const transcript = await window.api.exportSession(targetMode, cwd, session.id)
+      const sessionCwd = (await window.api.getSessionCwd(session.id)) ?? cwd
+      const { mode: resolvedMode, transcript } = await resolveSessionAccess(
+        targetMode,
+        session.id,
+        sessionCwd
+      )
       const media = await window.api.listSessionMedia(session.id)
       setConversations((current) => ({
         ...current,
         [conversationKey]:
           current[conversationKey]?.activeRunId
-            ? { ...current[conversationKey], activeSessionId: session.id }
+            ? {
+                ...current[conversationKey],
+                activeSessionId: session.id,
+                sessionCwd: current[conversationKey]?.sessionCwd ?? sessionCwd,
+                sessionMode: resolvedMode
+              }
             : {
                 messages: transcriptToMessages(transcript, media),
                 activeSessionId: session.id,
+                sessionCwd,
+                sessionMode: resolvedMode,
                 activeRunId: undefined,
                 contextUsage: current[conversationKey]?.contextUsage
               }
       }))
+      if (resolvedMode !== targetMode) setMode(resolvedMode)
       sessionMediaRef.current = { ...sessionMediaRef.current, [session.id]: media }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
@@ -521,6 +559,9 @@ function App(): React.JSX.Element {
 
     const currentFiles = attachedFiles
     const outgoingPrompt = buildPrompt(text)
+    const sessionId = activeConversation.activeSessionId
+    const sessionCwd = activeConversation.sessionCwd ?? cwd
+    const preferredMode = activeConversation.sessionMode ?? mode
     setPrompt('')
     setAttachedFiles([])
     setError(undefined)
@@ -537,18 +578,37 @@ function App(): React.JSX.Element {
     }))
 
     try {
+      let resolvedMode = preferredMode
+      if (sessionId) {
+        const resolved = await resolveSessionAccess(preferredMode, sessionId, sessionCwd)
+        resolvedMode = resolved.mode
+
+        if (resolvedMode !== preferredMode) {
+          setConversations((current) => ({
+            ...current,
+            [activeConversationKey]: {
+              ...(current[activeConversationKey] ?? createEmptyConversationState()),
+              sessionMode: resolvedMode
+            }
+          }))
+          setMode(resolvedMode)
+        }
+      }
+
       const started = await window.api.startCli({
-        mode,
-        cwd,
+        mode: resolvedMode,
+        cwd: sessionCwd,
         prompt: outgoingPrompt,
-        sessionId: activeConversation.activeSessionId,
-        model
+        sessionId,
+        model: sessionId ? undefined : model
       })
 
       setConversations((current) => ({
         ...current,
         [activeConversationKey]: {
           ...(current[activeConversationKey] ?? createEmptyConversationState()),
+          sessionCwd: current[activeConversationKey]?.sessionCwd ?? sessionCwd,
+          sessionMode: current[activeConversationKey]?.sessionMode ?? resolvedMode,
           activeRunId: started.runId
         }
       }))

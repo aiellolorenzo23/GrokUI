@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 import type { Dirent } from 'fs'
 import { readdir } from 'fs/promises'
 import { homedir } from 'os'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import type {
   CliContextUsage,
   CliContextUsageEntry,
@@ -388,6 +388,20 @@ async function findSessionDirectory(
   return undefined
 }
 
+function decodeSessionRootName(encodedRoot: string): string {
+  const decoded = decodeURIComponent(encodedRoot)
+  if (decoded.startsWith('\\\\?\\')) return decoded.slice(4)
+  return decoded
+}
+
+export async function getSessionCwd(sessionId: string): Promise<string | undefined> {
+  const sessionRoot = join(homedir(), '.grok', 'sessions')
+  const sessionDirectory = await findSessionDirectory(sessionRoot, sessionId)
+  if (!sessionDirectory) return undefined
+
+  return decodeSessionRootName(dirname(sessionDirectory).split(/[\\/]/).pop() ?? '')
+}
+
 export async function listSessionMedia(sessionId: string): Promise<string[]> {
   const sessionRoot = join(homedir(), '.grok', 'sessions')
   const sessionDirectory = await findSessionDirectory(sessionRoot, sessionId)
@@ -420,8 +434,6 @@ export async function listSessionMedia(sessionId: string): Promise<string[]> {
 export function startCliRun(window: BrowserWindow, request: CliRunRequest): CliRunStarted {
   const runId = randomUUID()
   const args = [
-    '--cwd',
-    defaultCwd(request.cwd),
     '-p',
     request.prompt,
     '--output-format',

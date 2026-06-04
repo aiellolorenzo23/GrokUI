@@ -13,6 +13,8 @@ export type ChatMessage = {
 export type ConversationState = {
   messages: ChatMessage[]
   activeSessionId?: string
+  sessionCwd?: string
+  sessionMode?: CliMode
   activeRunId?: string
   contextUsage?: CliContextUsage
 }

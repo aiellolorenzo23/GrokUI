@@ -22,6 +22,8 @@ const api = {
   listModels: (cwd: string): Promise<CliModelsResponse> => ipcRenderer.invoke('cli:list-models', cwd),
   exportSession: (mode: CliMode, cwd: string, sessionId: string) =>
     ipcRenderer.invoke('cli:export-session', mode, cwd, sessionId),
+  getSessionCwd: (sessionId: string): Promise<string | undefined> =>
+    ipcRenderer.invoke('cli:get-session-cwd', sessionId),
   listSessionMedia: (sessionId: string) => ipcRenderer.invoke('cli:list-session-media', sessionId),
   startCli: (request: CliRunRequest) => ipcRenderer.invoke('cli:start', request),
   stopCli: (runId: string) => ipcRenderer.invoke('cli:stop', runId),

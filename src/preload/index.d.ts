@@ -24,6 +24,7 @@ type GrokUiApi = {
   listSessions: (mode: CliMode, cwd: string, limit?: number) => Promise<CliSession[]>
   listModels: (cwd: string) => Promise<CliModelsResponse>
   exportSession: (mode: CliMode, cwd: string, sessionId: string) => Promise<string>
+  getSessionCwd: (sessionId: string) => Promise<string | undefined>
   listSessionMedia: (sessionId: string) => Promise<string[]>
   startCli: (request: CliRunRequest) => Promise<CliRunStarted>
   stopCli: (runId: string) => Promise<boolean>
