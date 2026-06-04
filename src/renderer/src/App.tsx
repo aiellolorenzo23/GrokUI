@@ -40,6 +40,14 @@ import {
   shortId,
   transcriptToMessages
 } from './utils/chat'
+import {
+  buildCliModelForRun,
+  fallbackMode,
+  findConversationKeyByRunId,
+  getConversationRunCwd,
+  getConversationRunMode,
+  isMissingSessionError
+} from './utils/session'
 
 function mergeSessions(...groups: CliSession[][]): CliSession[] {
   return Array.from(new Map(groups.flat().map((session) => [session.id, session])).values())
@@ -66,22 +74,6 @@ function getSessionConversationKey(mode: CliMode, sessionId: string): string {
 
 function createEmptyConversationState(): ConversationState {
   return { messages: [] }
-}
-
-function isMissingSessionError(reason: unknown): boolean {
-  const message = reason instanceof Error ? reason.message : String(reason)
-  return /session does not exist/i.test(message)
-}
-
-function findConversationKeyByRunId(
-  conversations: Record<string, ConversationState>,
-  mode: CliMode,
-  runId: string
-): string | undefined {
-  const prefix = `${mode}:`
-  return Object.entries(conversations).find(
-    ([key, conversation]) => key.startsWith(prefix) && conversation.activeRunId === runId
-  )?.[0]
 }
 
 function App(): React.JSX.Element {
@@ -163,9 +155,9 @@ function App(): React.JSX.Element {
       } catch (reason) {
         if (!isMissingSessionError(reason)) throw reason
 
-        const fallbackMode: CliMode = preferredMode === 'grok' ? 'agent' : 'grok'
-        const transcript = await window.api.exportSession(fallbackMode, sessionCwd, sessionId)
-        return { mode: fallbackMode, transcript }
+        const nextMode = fallbackMode(preferredMode)
+        const transcript = await window.api.exportSession(nextMode, sessionCwd, sessionId)
+        return { mode: nextMode, transcript }
       }
     },
     []
@@ -560,8 +552,8 @@ function App(): React.JSX.Element {
     const currentFiles = attachedFiles
     const outgoingPrompt = buildPrompt(text)
     const sessionId = activeConversation.activeSessionId
-    const sessionCwd = activeConversation.sessionCwd ?? cwd
-    const preferredMode = activeConversation.sessionMode ?? mode
+    const sessionCwd = getConversationRunCwd(activeConversation, cwd)
+    const preferredMode = getConversationRunMode(activeConversation, mode)
     setPrompt('')
     setAttachedFiles([])
     setError(undefined)
@@ -600,7 +592,7 @@ function App(): React.JSX.Element {
         cwd: sessionCwd,
         prompt: outgoingPrompt,
         sessionId,
-        model: sessionId ? undefined : model
+        model: buildCliModelForRun(sessionId, model)
       })
 
       setConversations((current) => ({
