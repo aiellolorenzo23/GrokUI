@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, adapted to the current needs of this project.
 
+## [1.0.1] - 2026-06-08
+
+### Added
+
+- Windows portable release artifact (`grokui-1.0.1-portable.exe`) alongside the standard setup installer.
+
+### Changed
+
+- GitHub release workflow now publishes both the Windows setup executable and the Windows portable executable.
+
 ## [1.0.0] - 2026-06-08
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "grokui",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GrokUI desktop UI for the Grok CLI",
   "main": "./out/main/index.js",
   "author": "GrokUI",
