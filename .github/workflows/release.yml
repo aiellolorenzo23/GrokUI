@@ -18,8 +18,10 @@ jobs:
         include:
           - name: Windows
             os: windows-latest
-            build_command: npm run build && npx electron-builder --win nsis --publish never
-            artifact_glob: dist/*.exe
+            build_command: npm run build && npx electron-builder --win nsis --win portable --publish never
+            artifact_glob: |
+              dist/*-setup.exe
+              dist/*-portable.exe
           - name: macOS
             os: macos-latest
             build_command: npm run build && npx electron-builder --mac dmg zip --publish never

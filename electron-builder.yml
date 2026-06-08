@@ -14,6 +14,8 @@ asarUnpack:
 win:
   icon: build/icon.ico
   executableName: GrokUI
+portable:
+  artifactName: ${name}-${version}-portable.${ext}
 mac:
   icon: build/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
