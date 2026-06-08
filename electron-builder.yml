@@ -44,4 +44,4 @@ publish:
   provider: github
   owner: aiellolorenzo23
   repo: GrokUI
-  releaseType: draft
+  releaseType: release

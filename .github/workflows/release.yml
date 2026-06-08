@@ -106,7 +106,7 @@ jobs:
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          draft: false
           body_path: release-notes.md
           files: ${{ matrix.artifact_glob }}
         env:
