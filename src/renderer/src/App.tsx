@@ -81,7 +81,6 @@ function App(): React.JSX.Element {
   const [cliCapabilities] = useState<CliCapabilities>(() => window.api.bootstrap.cliCapabilities)
   const [mode, setMode] = useState<CliMode>('grok')
   const [cwd, setCwd] = useState(() => window.api.bootstrap.homeDir || '')
-  const [model, setModel] = useState('')
   const [availableModels, setAvailableModels] = useState<CliModelInfo[]>([])
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [prompt, setPrompt] = useState('')
@@ -110,17 +109,13 @@ function App(): React.JSX.Element {
   const initialRefreshDoneRef = useRef(false)
   const logoStyle = { '--logo': `url(${grokLogo})` } as CSSProperties
   const activeConversationKey = activeConversationKeys[mode]
-  const activeConversation =
-    conversations[activeConversationKey] ?? createDraftConversationState()
+  const activeConversation = conversations[activeConversationKey] ?? createDraftConversationState()
   const t = useMemo(() => getDictionary(locale), [locale])
+  const model = prefs.selectedModel
 
   useEffect(() => {
     localeRef.current = locale
   }, [locale])
-
-  useEffect(() => {
-    setModel((current) => (current === prefs.selectedModel ? current : prefs.selectedModel))
-  }, [prefs.selectedModel])
 
   const visibleSessions = useMemo(
     () => ({
@@ -175,21 +170,19 @@ function App(): React.JSX.Element {
     if (!cwd) return
 
     let cancelled = false
-    setIsLoadingModels(true)
+    void Promise.resolve().then(async () => {
+      if (cancelled) return
+      setIsLoadingModels(true)
 
-    void window.api
-      .listModels(cwd)
-      .then((response) => {
-        if (cancelled) return
-        setAvailableModels(response.models)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setAvailableModels([])
-      })
-      .finally(() => {
+      try {
+        const response = await window.api.listModels(cwd)
+        if (!cancelled) setAvailableModels(response.models)
+      } catch {
+        if (!cancelled) setAvailableModels([])
+      } finally {
         if (!cancelled) setIsLoadingModels(false)
-      })
+      }
+    })
 
     return () => {
       cancelled = true
@@ -331,13 +324,8 @@ function App(): React.JSX.Element {
           })
 
           setActiveConversationKeys((current) => {
-            return applySessionEndEvent(
-              conversations,
-              current,
-              event.mode,
-              event.runId,
-              sessionId
-            ).activeConversationKeys
+            return applySessionEndEvent(conversations, current, event.mode, event.runId, sessionId)
+              .activeConversationKeys
           })
 
           void window.api.listSessionMedia(sessionId).then((media) => {
@@ -346,10 +334,9 @@ function App(): React.JSX.Element {
 
             if (newMedia.length > 0) {
               setConversations((conversationState) => {
-                const key =
-                  conversationState[getSessionConversationKey(event.mode, sessionId)]
-                    ? getSessionConversationKey(event.mode, sessionId)
-                    : findConversationKeyByRunId(conversationState, event.mode, event.runId)
+                const key = conversationState[getSessionConversationKey(event.mode, sessionId)]
+                  ? getSessionConversationKey(event.mode, sessionId)
+                  : findConversationKeyByRunId(conversationState, event.mode, event.runId)
                 if (!key) return conversationState
                 const target = conversationState[key]
                 return {
@@ -419,22 +406,21 @@ function App(): React.JSX.Element {
       const media = await window.api.listSessionMedia(session.id)
       setConversations((current) => ({
         ...current,
-      [conversationKey]:
-          current[conversationKey]?.activeRunId
-            ? {
-                ...current[conversationKey],
-                activeSessionId: session.id,
-                sessionCwd: current[conversationKey]?.sessionCwd ?? sessionCwd,
-                sessionMode: resolvedMode
-              }
-            : {
-                messages: transcriptToMessages(transcript, media),
-                activeSessionId: session.id,
-                sessionCwd,
-                sessionMode: resolvedMode,
-                activeRunId: undefined,
-                contextUsage: current[conversationKey]?.contextUsage
-              }
+        [conversationKey]: current[conversationKey]?.activeRunId
+          ? {
+              ...current[conversationKey],
+              activeSessionId: session.id,
+              sessionCwd: current[conversationKey]?.sessionCwd ?? sessionCwd,
+              sessionMode: resolvedMode
+            }
+          : {
+              messages: transcriptToMessages(transcript, media),
+              activeSessionId: session.id,
+              sessionCwd,
+              sessionMode: resolvedMode,
+              activeRunId: undefined,
+              contextUsage: current[conversationKey]?.contextUsage
+            }
       }))
       if (resolvedMode !== targetMode) setMode(resolvedMode)
       sessionMediaRef.current = { ...sessionMediaRef.current, [session.id]: media }
@@ -520,11 +506,11 @@ function App(): React.JSX.Element {
 
     setConversations((current) => ({
       ...current,
-        [activeConversationKey]: {
-          ...(current[activeConversationKey] ?? createDraftConversationState()),
-          messages: [
-            ...(current[activeConversationKey]?.messages ?? []),
-            createChatMessage('user', outgoingPrompt)
+      [activeConversationKey]: {
+        ...(current[activeConversationKey] ?? createDraftConversationState()),
+        messages: [
+          ...(current[activeConversationKey]?.messages ?? []),
+          createChatMessage('user', outgoingPrompt)
         ]
       }
     }))
@@ -649,7 +635,6 @@ function App(): React.JSX.Element {
     : t.newConversation
 
   const setSelectedModel = (nextModel: string): void => {
-    setModel(nextModel)
     setPrefs((current) => ({ ...current, selectedModel: nextModel }))
   }
 

@@ -19,7 +19,8 @@ const api = {
   bootstrap,
   listSessions: (mode: CliMode, cwd: string, limit?: number) =>
     ipcRenderer.invoke('cli:list-sessions', mode, cwd, limit),
-  listModels: (cwd: string): Promise<CliModelsResponse> => ipcRenderer.invoke('cli:list-models', cwd),
+  listModels: (cwd: string): Promise<CliModelsResponse> =>
+    ipcRenderer.invoke('cli:list-models', cwd),
   exportSession: (mode: CliMode, cwd: string, sessionId: string) =>
     ipcRenderer.invoke('cli:export-session', mode, cwd, sessionId),
   getSessionCwd: (sessionId: string): Promise<string | undefined> =>
@@ -28,7 +29,8 @@ const api = {
   startCli: (request: CliRunRequest) => ipcRenderer.invoke('cli:start', request),
   stopCli: (runId: string) => ipcRenderer.invoke('cli:stop', runId),
   openMedia: (target: string) => ipcRenderer.invoke('app:open-media', target),
-  openContainingFolder: (target: string) => ipcRenderer.invoke('app:open-containing-folder', target),
+  openContainingFolder: (target: string) =>
+    ipcRenderer.invoke('app:open-containing-folder', target),
   readPreferences: () => ipcRenderer.invoke('app:read-preferences'),
   writePreferences: (value: unknown) => ipcRenderer.invoke('app:write-preferences', value),
   getSystemLocale: () => ipcRenderer.invoke('app:get-system-locale'),

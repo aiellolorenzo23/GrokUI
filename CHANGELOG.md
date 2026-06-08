@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, adapted to the current needs of this pr
 ## [1.0.0] - 2026-06-08
 
 ### Added
+
 - Initial public release of GrokUI as an Electron desktop client for the local Grok CLI.
 - Desktop chat interface for `grok` and `agent` sessions with streaming CLI output rendering.
 - Session discovery and transcript loading through the locally installed CLI.
@@ -19,5 +20,6 @@ The format is based on Keep a Changelog, adapted to the current needs of this pr
 - Generated desktop icons for Windows, macOS, and Linux from the SVG source asset.
 
 ### Notes
+
 - GrokUI depends on a locally installed and already configured Grok CLI environment.
 - Windows, macOS, and Linux packages are produced through Electron Builder.

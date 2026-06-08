@@ -105,13 +105,15 @@ function parseContextUsage(lines: string[]): CliContextUsage | undefined {
       )
       if (!match) return []
 
-      return [{
-        label: match[1].trim(),
-        tokens: match[2].trim(),
-        percentage: match[3].trim(),
-        extra: match[4]?.trim(),
-        tone: toneForContextLabel(match[1].trim())
-      }]
+      return [
+        {
+          label: match[1].trim(),
+          tokens: match[2].trim(),
+          percentage: match[3].trim(),
+          extra: match[4]?.trim(),
+          tone: toneForContextLabel(match[1].trim())
+        }
+      ]
     })
 
   const compactNote = filteredLines.find((line) => /^Auto-compact\b/i.test(line))
@@ -355,7 +357,9 @@ export async function listModels(cwd: string): Promise<CliModelsResponse> {
       return {
         id,
         isDefault:
-          match[1] === '*' || /\(default\)\s*$/i.test(line) || (defaultModel ? id === defaultModel : false)
+          match[1] === '*' ||
+          /\(default\)\s*$/i.test(line) ||
+          (defaultModel ? id === defaultModel : false)
       }
     })
     .filter((model): model is NonNullable<typeof model> => Boolean(model))
@@ -433,12 +437,7 @@ export async function listSessionMedia(sessionId: string): Promise<string[]> {
 
 export function startCliRun(window: BrowserWindow, request: CliRunRequest): CliRunStarted {
   const runId = randomUUID()
-  const args = [
-    '-p',
-    request.prompt,
-    '--output-format',
-    'streaming-json'
-  ]
+  const args = ['-p', request.prompt, '--output-format', 'streaming-json']
 
   if (request.model?.trim()) {
     args.unshift('-m', request.model.trim())

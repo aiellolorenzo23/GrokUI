@@ -59,14 +59,22 @@ describe('applySessionEndEvent', () => {
     const current = createConversations()
     const activeKeys = { grok: 'grok:draft', agent: 'agent:draft' } as const
 
-    const result = applySessionEndEvent(current, { ...activeKeys }, 'grok', 'run-grok', 'session-123')
+    const result = applySessionEndEvent(
+      current,
+      { ...activeKeys },
+      'grok',
+      'run-grok',
+      'session-123'
+    )
 
     expect(result.conversations[getSessionConversationKey('grok', 'session-123')]).toMatchObject({
       activeSessionId: 'session-123',
       activeRunId: 'run-grok'
     })
     expect(result.conversations[getDraftConversationKey('grok')]).toMatchObject({ messages: [] })
-    expect(result.activeConversationKeys.grok).toBe(getSessionConversationKey('grok', 'session-123'))
+    expect(result.activeConversationKeys.grok).toBe(
+      getSessionConversationKey('grok', 'session-123')
+    )
     expect(result.activeConversationKeys.agent).toBe('agent:draft')
   })
 
@@ -106,9 +114,18 @@ describe('applyContextUsageEvent', () => {
 
 describe('applyErrorStreamEvent', () => {
   it('adds a system message only to the matching conversation', () => {
-    const updated = applyErrorStreamEvent(createConversations(), 'agent', 'run-agent', 'fallback', 'boom')
+    const updated = applyErrorStreamEvent(
+      createConversations(),
+      'agent',
+      'run-agent',
+      'fallback',
+      'boom'
+    )
 
-    expect(updated['agent:draft'].messages.at(-1)).toMatchObject({ role: 'system', content: 'boom' })
+    expect(updated['agent:draft'].messages.at(-1)).toMatchObject({
+      role: 'system',
+      content: 'boom'
+    })
     expect(updated['grok:draft'].messages).toHaveLength(1)
   })
 })

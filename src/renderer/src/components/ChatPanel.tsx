@@ -18,7 +18,12 @@ import {
   normalizeHighlightLanguage
 } from '../utils/highlight'
 import { parseInlineTokens, parseMarkdownBlocks, unescapeMarkdownText } from '../utils/markdown'
-import { displayNameFromPath, extensionFromPath, mediaPreviewSrc, mediaTypeFromPath } from '../utils/chat'
+import {
+  displayNameFromPath,
+  extensionFromPath,
+  mediaPreviewSrc,
+  mediaTypeFromPath
+} from '../utils/chat'
 
 function renderGenericFileIcon(path: string): React.JSX.Element {
   const extension = extensionFromPath(path)
@@ -136,7 +141,11 @@ function renderGenericFileIcon(path: string): React.JSX.Element {
     )
   }
 
-  if (['js', 'ts', 'tsx', 'jsx', 'css', 'json', 'py', 'java', 'cpp', 'c', 'cs', 'php'].includes(extension)) {
+  if (
+    ['js', 'ts', 'tsx', 'jsx', 'css', 'json', 'py', 'java', 'cpp', 'c', 'cs', 'php'].includes(
+      extension
+    )
+  ) {
     return (
       <svg viewBox="0 0 20 20" focusable="false">
         <path

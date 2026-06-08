@@ -28,14 +28,14 @@ export function getConversationRunMode(
   return conversation.sessionMode ?? currentMode
 }
 
-export function getConversationRunCwd(
-  conversation: ConversationState,
-  currentCwd: string
-): string {
+export function getConversationRunCwd(conversation: ConversationState, currentCwd: string): string {
   return conversation.sessionCwd ?? currentCwd
 }
 
-export function buildCliModelForRun(sessionId: string | undefined, selectedModel: string): string | undefined {
+export function buildCliModelForRun(
+  sessionId: string | undefined,
+  selectedModel: string
+): string | undefined {
   return sessionId ? undefined : selectedModel
 }
 

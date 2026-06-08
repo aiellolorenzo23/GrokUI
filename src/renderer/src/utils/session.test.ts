@@ -10,7 +10,9 @@ import {
 
 describe('isMissingSessionError', () => {
   it('detects missing session errors from cli messages', () => {
-    expect(isMissingSessionError(new Error("Couldn't create session: Session does not exist"))).toBe(true)
+    expect(
+      isMissingSessionError(new Error("Couldn't create session: Session does not exist"))
+    ).toBe(true)
     expect(isMissingSessionError('Error: Session does not exist')).toBe(true)
     expect(isMissingSessionError(new Error('Permission denied'))).toBe(false)
   })
