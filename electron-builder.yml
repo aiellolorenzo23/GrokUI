@@ -34,13 +34,14 @@ linux:
   icon: build/icon.png
   target:
     - AppImage
-    - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: Lorenzo Aiello
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: aiellolorenzo23
+  repo: GrokUI
+  releaseType: draft
