@@ -614,21 +614,18 @@ function ReasoningBlock({
   defaultCollapsed?: boolean
   t: Dictionary
 }): React.JSX.Element {
-  const [isExpanded, setIsExpanded] = useState(!defaultCollapsed)
-
-  useEffect(() => {
-    if (defaultCollapsed) setIsExpanded(false)
-  }, [defaultCollapsed])
+  const [isExpanded, setIsExpanded] = useState(() => !defaultCollapsed)
+  const isActuallyExpanded = defaultCollapsed ? false : isExpanded
 
   return (
-    <div className={`message-reasoning${isExpanded ? ' expanded' : ' collapsed'}`}>
+    <div className={`message-reasoning${isActuallyExpanded ? ' expanded' : ' collapsed'}`}>
       <button
         type="button"
         className="message-reasoning-toggle"
         onClick={() => setIsExpanded((value) => !value)}
       >
         <span>{t.reasoning}</span>
-        <strong>{isExpanded ? t.collapseReasoning : t.expandReasoning}</strong>
+        <strong>{isActuallyExpanded ? t.collapseReasoning : t.expandReasoning}</strong>
       </button>
       <div className="message-reasoning-body">
         <p>{reasoning}</p>

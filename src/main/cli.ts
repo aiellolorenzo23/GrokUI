@@ -203,7 +203,9 @@ function extractTextFromJson(data: unknown, depth = 0): string | undefined {
   return undefined
 }
 
-function extractStreamingChunk(data: unknown): { kind: 'text' | 'thought'; text: string } | undefined {
+function extractStreamingChunk(
+  data: unknown
+): { kind: 'text' | 'thought'; text: string } | undefined {
   if (!data || typeof data !== 'object') return undefined
 
   const record = data as Record<string, unknown>
