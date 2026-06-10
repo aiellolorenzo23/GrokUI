@@ -55,7 +55,7 @@ if ($remoteTag) {
 }
 
 $changelog = Get-Content "CHANGELOG.md" -Raw
-if ($changelog -notmatch ("(?m)^## \[{0}\]\b" -f [regex]::Escape($version))) {
+if ($changelog -notmatch ("(?m)^## \[{0}\](?:\s|-|$)" -f [regex]::Escape($version))) {
   throw "CHANGELOG.md does not contain a section for version $version"
 }
 
