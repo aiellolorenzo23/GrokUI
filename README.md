@@ -4,6 +4,10 @@
   </span>
 </p>
 
+<p align="center">
+  <a href="https://github.com/aiellolorenzo23/GrokUI/releases/latest">Download Latest Release</a>
+</p>
+
 Unofficial desktop client for `grok` and `agent`, built with Electron and inspired by the browser version of Grok.
 
 ## GrokUI
