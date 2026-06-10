@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, adapted to the current needs of this project.
 
+## [1.0.2] - 2026-06-10
+
+### Added
+
+- Support for assistant reasoning streams shown separately from the final assistant response.
+- Collapsible reasoning blocks in chat messages, with localized labels for expanding and collapsing the reasoning panel.
+
+### Changed
+
+- Streaming event handling now recognizes CLI `thought` chunks alongside standard assistant text output.
+- The reasoning panel behavior was refined so collapsed and expanded states stay consistent while the assistant response is still streaming.
+
 ## [1.0.1] - 2026-06-08
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "grokui",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "GrokUI desktop UI for the Grok CLI",
   "main": "./out/main/index.js",
   "author": "GrokUI",
@@ -17,6 +17,7 @@
     "dev": "electron-vite dev",
     "build": "npm run icons && npm run typecheck && electron-vite build",
     "icons": "node scripts/build-icons.cjs",
+    "release:push": "powershell -ExecutionPolicy Bypass -File scripts/release.ps1",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win nsis --win portable",
