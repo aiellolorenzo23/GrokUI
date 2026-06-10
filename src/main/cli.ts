@@ -203,17 +203,18 @@ function extractTextFromJson(data: unknown, depth = 0): string | undefined {
   return undefined
 }
 
-function extractStreamingText(data: unknown): string | undefined {
+function extractStreamingChunk(data: unknown): { kind: 'text' | 'thought'; text: string } | undefined {
   if (!data || typeof data !== 'object') return undefined
 
   const record = data as Record<string, unknown>
   const type = typeof record.type === 'string' ? record.type : undefined
 
-  if (type === 'text') {
-    return typeof record.data === 'string' ? record.data : extractTextFromJson(record.data)
-  }
+  if (type !== 'text' && type !== 'thought') return undefined
 
-  return undefined
+  const text = typeof record.data === 'string' ? record.data : extractTextFromJson(record.data)
+  if (!text) return undefined
+
+  return { kind: type, text }
 }
 
 function emitLine(
@@ -230,9 +231,9 @@ function emitLine(
   if (kind === 'stdout') {
     try {
       const data = JSON.parse(line) as unknown
-      const extracted = extractStreamingText(data)
+      const extracted = extractStreamingChunk(data)
       emit(window, { runId, mode, kind: 'json', data })
-      if (extracted) emit(window, { runId, mode, kind: 'text', text: extracted })
+      if (extracted) emit(window, { runId, mode, kind: extracted.kind, text: extracted.text })
       return
     } catch {
       // Plain output falls through to stdout text.

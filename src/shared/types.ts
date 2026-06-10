@@ -65,7 +65,7 @@ export type CliRunStarted = {
 export type CliStreamEvent = {
   runId: string
   mode: CliMode
-  kind: 'stdout' | 'stderr' | 'text' | 'json' | 'exit' | 'error'
+  kind: 'stdout' | 'stderr' | 'text' | 'thought' | 'json' | 'exit' | 'error'
   text?: string
   data?: unknown
   code?: number | null

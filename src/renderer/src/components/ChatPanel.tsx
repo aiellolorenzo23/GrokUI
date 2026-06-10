@@ -605,6 +605,38 @@ function MessageContent({
   )
 }
 
+function ReasoningBlock({
+  reasoning,
+  defaultCollapsed,
+  t
+}: {
+  reasoning: string
+  defaultCollapsed?: boolean
+  t: Dictionary
+}): React.JSX.Element {
+  const [isExpanded, setIsExpanded] = useState(!defaultCollapsed)
+
+  useEffect(() => {
+    if (defaultCollapsed) setIsExpanded(false)
+  }, [defaultCollapsed])
+
+  return (
+    <div className={`message-reasoning${isExpanded ? ' expanded' : ' collapsed'}`}>
+      <button
+        type="button"
+        className="message-reasoning-toggle"
+        onClick={() => setIsExpanded((value) => !value)}
+      >
+        <span>{t.reasoning}</span>
+        <strong>{isExpanded ? t.collapseReasoning : t.expandReasoning}</strong>
+      </button>
+      <div className="message-reasoning-body">
+        <p>{reasoning}</p>
+      </div>
+    </div>
+  )
+}
+
 function ContextUsageBadge({
   contextUsage,
   contextUsageSupport,
@@ -748,6 +780,9 @@ export function ChatPanel({
   stopCurrent
 }: ChatPanelProps): React.JSX.Element {
   const [copiedMessageId, setCopiedMessageId] = useState<string>()
+  const hasLiveAssistantMessage =
+    activeConversation.activeRunId &&
+    activeConversation.messages[activeConversation.messages.length - 1]?.role === 'assistant'
 
   const copyMessage = async (message: ChatMessage): Promise<void> => {
     try {
@@ -854,17 +889,26 @@ export function ChatPanel({
                   {copiedMessageId === message.id ? t.copied : t.copyMessage}
                 </button>
               </div>
-              <MessageContent
-                content={message.content}
-                t={t}
-                assistantViewMode={assistantViewMode}
-              />
+              {message.reasoning && (
+                <ReasoningBlock
+                  reasoning={message.reasoning}
+                  defaultCollapsed={message.reasoningCollapsed}
+                  t={t}
+                />
+              )}
+              {message.content.trim() && (
+                <MessageContent
+                  content={message.content}
+                  t={t}
+                  assistantViewMode={assistantViewMode}
+                />
+              )}
               <MessageMediaGallery links={messageMedia} t={t} />
             </article>
           )
         })}
 
-        {activeConversation.activeRunId && (
+        {activeConversation.activeRunId && !hasLiveAssistantMessage && (
           <article className="chat-message assistant pending">
             <div className="message-author">{mode}</div>
             <div className="typing-indicator" aria-label={t.responseInProgress}>

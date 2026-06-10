@@ -53,6 +53,7 @@ import {
   applyErrorStreamEvent,
   applyExitStreamEvent,
   applySessionEndEvent,
+  applyThoughtStreamEvent,
   applyTextStreamEvent,
   createDraftConversationState,
   getDraftConversationKey,
@@ -359,6 +360,10 @@ function App(): React.JSX.Element {
       setConversations((current) => {
         const key = findConversationKeyByRunId(current, event.mode, event.runId)
         if (!key) return current
+
+        if (event.kind === 'thought') {
+          return applyThoughtStreamEvent(current, event.mode, event.runId, event.text ?? '')
+        }
 
         if (event.kind === 'text' || event.kind === 'stdout') {
           return applyTextStreamEvent(current, event.mode, event.runId, event.text ?? '')

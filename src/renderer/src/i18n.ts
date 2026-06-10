@@ -43,6 +43,9 @@ export type Dictionary = {
   you: string
   system: string
   responseInProgress: string
+  reasoning: string
+  expandReasoning: string
+  collapseReasoning: string
   scrollToLatest: string
   copyCode: string
   copyMessage: string
@@ -112,6 +115,9 @@ const dictionaries: Record<Locale, Dictionary> = {
     you: 'Tu',
     system: 'Sistema',
     responseInProgress: 'Risposta in corso',
+    reasoning: 'Ragionamento',
+    expandReasoning: 'Espandi',
+    collapseReasoning: 'Comprimi',
     scrollToLatest: "Vai all'ultimo messaggio",
     copyCode: 'Copia',
     copyMessage: 'Copia messaggio',
@@ -179,6 +185,9 @@ const dictionaries: Record<Locale, Dictionary> = {
     you: 'You',
     system: 'System',
     responseInProgress: 'Response in progress',
+    reasoning: 'Reasoning',
+    expandReasoning: 'Expand',
+    collapseReasoning: 'Collapse',
     scrollToLatest: 'Go to latest message',
     copyCode: 'Copy',
     copyMessage: 'Copy message',

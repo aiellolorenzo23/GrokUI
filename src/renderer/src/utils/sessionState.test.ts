@@ -6,6 +6,7 @@ import {
   applyErrorStreamEvent,
   applyExitStreamEvent,
   applySessionEndEvent,
+  applyThoughtStreamEvent,
   applyTextStreamEvent,
   getDraftConversationKey,
   getSessionConversationKey
@@ -50,6 +51,46 @@ describe('applyTextStreamEvent', () => {
       id: 'a1',
       role: 'assistant',
       content: 'partial'
+    })
+  })
+
+  it('auto-collapses reasoning once assistant text starts arriving', () => {
+    const conversations = createConversations()
+    conversations['grok:draft'] = {
+      ...conversations['grok:draft'],
+      messages: [
+        { id: 'u1', role: 'user', content: 'hello' },
+        {
+          id: 'a1',
+          role: 'assistant',
+          content: '',
+          reasoning: 'thinking',
+          reasoningCollapsed: false
+        }
+      ]
+    }
+
+    const updated = applyTextStreamEvent(conversations, 'grok', 'run-grok', 'done')
+    expect(updated['grok:draft'].messages.at(-1)).toMatchObject({
+      id: 'a1',
+      role: 'assistant',
+      content: 'done',
+      reasoning: 'thinking',
+      reasoningCollapsed: true
+    })
+  })
+})
+
+describe('applyThoughtStreamEvent', () => {
+  it('creates an assistant message and appends reasoning progressively', () => {
+    let updated = applyThoughtStreamEvent(createConversations(), 'grok', 'run-grok', 'The')
+    updated = applyThoughtStreamEvent(updated, 'grok', 'run-grok', ' plan')
+
+    expect(updated['grok:draft'].messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: '',
+      reasoning: 'The plan',
+      reasoningCollapsed: false
     })
   })
 })
